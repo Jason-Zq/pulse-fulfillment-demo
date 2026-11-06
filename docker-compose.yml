@@ -41,6 +41,7 @@ services:
       dockerfile: src/Pulse.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:8080
+      Database__Provider: "MySql"
       ConnectionStrings__MySql: "Server=mysql;Database=${MYSQL_DATABASE:-pulse};User=root;Password=${MYSQL_ROOT_PASSWORD:-pulse_dev}"
       ConnectionStrings__Redis: "redis:6379"
       ConnectionStrings__RabbitMq: "host=rabbitmq"

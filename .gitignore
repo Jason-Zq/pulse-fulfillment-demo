@@ -24,5 +24,13 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# 本地 dotnet 工具（dotnet-ef）
+.tools/
+
+# 本地演示数据库
+*.db
+*.db-shm
+*.db-wal
+
 # WorkBuddy 项目内数据（工具数据，不入库）
 .workbuddy/

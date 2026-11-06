@@ -57,16 +57,18 @@
 
 ## 7. 验证状态（如实记录，2026-11-06 M0 收尾）
 
-**已实测通过**
+**已实测通过（截至 M1）**
 
 - `dotnet build src/Pulse.sln`：0 warning / 0 error。
-- `dotnet test src/Pulse.sln`：4 passed（3 个订单状态机 + 1 个 `/api/health` 集成测试），并保留了 RED→GREEN 的失败证据。
-- `npm --prefix web install`：111 个包安装成功。
-- `npm --prefix web run build`：`vue-tsc --noEmit` + Vite 构建成功。
+- `dotnet test src/Pulse.sln`：**10 passed**（3 个订单状态机 + 4 个下单集成 + 3 个 API 端点），M0 与 M1 各保留一次 RED→GREEN 失败证据。
+- 下单链路集成测试使用 **EF Core Sqlite in-memory**，覆盖事务、唯一索引幂等与乐观锁；生产模型仍为 MySQL，初始迁移已生成。
+- `npm --prefix web install`：111 个包安装成功；`npm --prefix web run build`：`vue-tsc --noEmit` + Vite 构建成功。
 
 **未验证**
 
 - **本机未安装 Docker**：`docker compose up`、五个服务互联、healthcheck、镜像构建均尚未实际运行。compose 文件按规格写全，首次在有 Docker 的环境需核对。
-- 压测、故障注入与 A2–A9 验收项随 M1–M6 推进后补齐。
+- **MySQL 初始迁移未应用到真实库**：本机虽有 `mysqld 9.3.0`，但版本与规格锁定的 MySQL 8 不一致，且启动会改动本机数据目录，M1 未启用。
+- **Redis 幂等短钥匙未实现**（M2）：M1 的幂等保障由 `orders.idempotency_key` 唯一索引承担，与订单同事务。
+- RabbitMQ 投递与消费（含 publisher confirms、重试、死信）、压测、故障注入与 A2–A9 验收项随 M2–M6 补齐。
 
 未跑过的一律不写「通过」。

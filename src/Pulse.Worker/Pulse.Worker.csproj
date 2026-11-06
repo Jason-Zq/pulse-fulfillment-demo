@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pulse.Domain\Pulse.Domain.csproj" />
+    <ProjectReference Include="..\Pulse.Infrastructure\Pulse.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

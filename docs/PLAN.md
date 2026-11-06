@@ -111,3 +111,68 @@
 - **计划偏移（已记录，未悄悄改）**：任务 0.7 原定 `npm create vite` 生成脚手架，该命令在本机被中断（SIGTERM），改为手写等价骨架文件；任务 0.5 的 curl 手工验证由 0.6 的 `WebApplicationFactory` 集成测试覆盖，不再重复起服务。
 - 已知提示（非错误）：Vite 构建提示主 chunk >500 kB，M4 拆分后台页面时再做 code-split。
 - M1 开始前需先把 M1 拆成 2–5 分钟粒度任务，再进入红绿 TDD。
+
+## M1 任务（2–5 分钟粒度，2026-11-06 拆解）
+
+### 环境补充实测
+
+本机**有** `redis-server 8.10.0`、`mysqld 9.3.0`、`sqlite3 3.54.0`，但**没有 Docker**。前两者版本与规格锁定的 Redis 7 / MySQL 8 不一致，且启动本地 mysqld 需要初始化 datadir、会改动用户机器状态，M1 不启用。
+
+**M1 取舍（记录在案）**：
+
+1. 集成测试统一用 **EF Core Sqlite in-memory**（关系型 provider，支持事务 / 唯一索引 / 乐观锁 `WHERE version = x`），零副作用、CI 可复现；生产仍走 MySQL，MySQL 初始迁移照常生成。M2 若接 Testcontainers 再切真 MySQL。
+2. 幂等 token 的 **M1 保障落在 `orders.idempotency_key` 唯一索引**（与订单同事务，比 Redis 短钥匙更硬且可测）；Redis `idem:{token}` 短钥匙留到 M2 叠加，不在 M1 提前造。
+3. 原路线图写「12 张表迁移」，按 YAGNI 修正为**只建 M1 需要的 6 张**（products / inventory / orders / order_items / inventory_ledger / outbox）；processed_events / dead_letters / daily_reports / experiment_results / qrtz_* 在各自里程碑建。
+
+### 任务 1.1：新建 Infrastructure 项目并加依赖
+- 文件路径：`src/Pulse.Infrastructure/`、`src/Pulse.sln`
+- 要做的：`dotnet new classlib -n Pulse.Infrastructure -o src/Pulse.Infrastructure -f net8.0`；`dotnet sln add`；`dotnet add reference src/Pulse.Domain`；加包 `Pomelo.EntityFrameworkCore.MySql 8.0.0`、`Microsoft.EntityFrameworkCore.Design 8.0.*`；Api 与 Worker 引用 Infrastructure。
+- 验证：`dotnet build src/Pulse.sln` 0 error。
+
+### 任务 1.2：定义 M1 六个实体
+- 文件路径：`src/Pulse.Infrastructure/Persistence/Entities.cs`
+- 要做的：`Product`、`Inventory`（含 `Version` 并发令牌）、`Order`（含 `IdempotencyKey` / `ExpiresAtUtc` / `Status`）、`OrderItem`、`InventoryLedger`、`OutboxMessage`；时间统一 UTC。
+- 验证：`dotnet build` 通过。
+
+### 任务 1.3：PulseDbContext 与模型配置
+- 文件路径：`src/Pulse.Infrastructure/Persistence/PulseDbContext.cs`
+- 要做的：六个 `DbSet`；`OnModelCreating` 配 `UNIQUE(sku)`、`UNIQUE(order_no)`、`UNIQUE(idempotency_key)`、`UNIQUE(event_id)`、`Version` 为 `IsConcurrencyToken()`、`INDEX(status, created_at)` / `INDEX(status, created_at)` on outbox。
+- 验证：`dotnet build` 通过；后续测试能 `EnsureCreated()`。
+
+### 任务 1.4：生成 MySQL 初始迁移
+- 文件路径：`src/Pulse.Infrastructure/Migrations/`
+- 要做的：`dotnet ef migrations add InitialCreate --project ... --startup-project src/Pulse.Api --output-dir Migrations`（需 `dotnet-ef` 工具或 Design 包 + `dotnet tool install`）。
+- 验证：`Migrations/` 下生成 3 个文件，`dotnet build` 通过。**迁移未应用到真实 MySQL**（本机无对应服务），如实标注。
+
+### 任务 1.5：RED — 下单集成测试
+- 文件路径：`tests/Pulse.Infrastructure.Tests/`（新建 xunit + `Microsoft.EntityFrameworkCore.Sqlite 8.0.*`）、`PlaceOrderServiceTests.cs`
+- 要做的：四个测试——① 正常下单生成订单 / 预扣库存 / ledger / outbox 各 1 条；② 库存不足抛异常且无副作用；③ 同一幂等键重复提交返回同一订单号、库存只扣一次；④ 乐观锁并发争抢最后一件库存只有一个成功。此时 `PlaceOrderService` 不存在。
+- 验证：`dotnet test` **必须失败**（编译错误），留 RED 证据。
+
+### 任务 1.6：GREEN — 实现下单事务
+- 文件路径：`src/Pulse.Infrastructure/Orders/PlaceOrderService.cs`
+- 要做的：单事务内查幂等键 → 校验库存 → 乐观锁 `available -= qty; reserved += qty; version++` → 建 `Order(Created, expires +15min)` 与 `OrderItem` → 写 ledger(Reserve) 与 outbox(`order.created`) → 提交；`DbUpdateConcurrencyException` 转为明确的库存冲突异常。
+- 验证：任务 1.5 的四个测试全绿。
+
+### 任务 1.7：API 接入下单端点
+- 文件路径：`src/Pulse.Api/Program.cs`、`src/Pulse.Api/appsettings.json`、`docker-compose.yml`
+- 要做的：`Database:Provider` 默认 `Sqlite`（本地演示，无 Docker 也能起）；compose 里覆盖为 `MySql` + 连接串；注册 `PulseDbContext` 与 `PlaceOrderService`；暴露 `POST /api/orders`、`GET /api/products`、`GET /api/orders/{id}`；启动时 `EnsureCreated` 并播种少量演示 SKU。
+- 验证：`dotnet test` 含健康检查仍全绿；`dotnet run` 后 `curl POST /api/orders` 返回订单号。
+
+### 任务 1.8：全量验证与 M1 提交
+- 要做的：跑 `dotnet build` / `dotnet test` / `npm run build`；更新 README 验证表、BOUNDARIES 第 7 节、PLAN 执行记录；`git commit`。
+- 验证：工作区干净，三条命令全绿；**MySQL 迁移应用与 Redis 幂等仍标注未验证**。
+
+## 纪律补充
+
+M1 不引入 RabbitMQ 客户端、不引入 Redis 客户端、不写履约消费与超时关单（均属 M2/M3）。任何偏离先更新本文件。
+
+## M1 执行记录（2026-11-06）
+
+- 任务 1.1–1.8 完成。**本机实测**：`dotnet build` 0 warning / 0 error；`dotnet test` **10 passed**（Domain 3 + Infrastructure 4 + Api 3）；`npm run build` 沿用 M0 结果仍通过。
+- RED 证据 1：实现前 `CS0234` 找不到 `Pulse.Infrastructure.Orders`（退出码 1）；GREEN：4 个下单集成测试全绿。
+- 产出：`src/Pulse.Infrastructure`（6 个实体、`PulseDbContext`、`PulseDbContextFactory`、`PlaceOrderService`）、`Migrations/20261106144831_InitialCreate.cs` 等 3 个迁移文件、`tests/Pulse.Infrastructure.Tests`、`tests/Pulse.Api.Tests/PlaceOrderEndpointTests.cs`、API 三个端点、compose 增加 `Database__Provider=MySql`。
+- 本地默认 SQLite（`pulse-demo.db`，启动自动建表 + 播种 2 个 SKU），compose 覆盖为 MySQL 并走 `Migrate()`；`.tools/dotnet-ef` 为本地工具路径，未污染全局。
+- **计划偏移（已记录）**：① 任务 1.7 原定手工 `curl` 验证，改为 `WebApplicationFactory` 自动化端点测试，更可重复；因共享本地 SQLite 库，`Pulse.Api.Tests` 加了 `CollectionBehavior(DisableTestParallelization = true)` 避免文件锁竞争。② 第 4 个并发测试改为「陈旧 version 更新触发 `DbUpdateConcurrencyException`」，比 SQLite 写锁竞争更稳定可重现。③ **纪律偏差**：API 薄适配层是「先实现后补集成测试」，未走严格 RED-GREEN；核心业务逻辑（Infrastructure 层）严格走了 TDD，**M2 起所有层恢复严格红绿**。
+- **未验证**：MySQL 迁移应用到真实库、Redis、RabbitMQ、`docker compose up`（本机无 Docker）。
+- M2 开始前需先把 M2 拆成 2–5 分钟粒度任务（outbox publisher + publisher confirms、RabbitMQ 拓扑、Redis 幂等短钥匙、Testcontainers 或本地服务验证策略）。

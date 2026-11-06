@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pulse.Domain.Tests", "..\te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pulse.Api.Tests", "..\tests\Pulse.Api.Tests\Pulse.Api.Tests.csproj", "{44E1F0A4-CEAC-447F-A30C-CA067F0ED878}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pulse.Infrastructure", "Pulse.Infrastructure\Pulse.Infrastructure.csproj", "{C0CD6799-188A-4D18-856A-E343FDA3E92D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pulse.Infrastructure.Tests", "..\tests\Pulse.Infrastructure.Tests\Pulse.Infrastructure.Tests.csproj", "{745F66A0-BF6E-4F4D-9036-F810225664DE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +46,13 @@ Global
 		{44E1F0A4-CEAC-447F-A30C-CA067F0ED878}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{44E1F0A4-CEAC-447F-A30C-CA067F0ED878}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{44E1F0A4-CEAC-447F-A30C-CA067F0ED878}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0CD6799-188A-4D18-856A-E343FDA3E92D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0CD6799-188A-4D18-856A-E343FDA3E92D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0CD6799-188A-4D18-856A-E343FDA3E92D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0CD6799-188A-4D18-856A-E343FDA3E92D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{745F66A0-BF6E-4F4D-9036-F810225664DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{745F66A0-BF6E-4F4D-9036-F810225664DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{745F66A0-BF6E-4F4D-9036-F810225664DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{745F66A0-BF6E-4F4D-9036-F810225664DE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

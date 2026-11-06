@@ -16,11 +16,26 @@
 | 前端 | Vue 3 + TypeScript + Vite + Element Plus |
 | 编排 | Docker Compose |
 
-## 当前完成度：M0（骨架）
+## 当前完成度：M1（下单与库存）
 
-已具备：.NET 8 解决方案（Domain / Api / Worker / Domain.Tests）、订单状态机及其红绿 TDD 测试、`GET /api/health`、Vue + Element Plus 前端骨架、五服务 compose 编排、边界说明文档。
+已具备：M0 全部骨架，加上 6 张表的 EF Core 模型与 MySQL 初始迁移、下单事务（库存预扣 + 乐观锁、库存流水、outbox 消息、幂等键、15 分钟过期）、下单相关 API。
 
-尚未实现：下单、outbox、消息拓扑、履约消费、超时关单、死信补偿、实验台、压测报告、演示 GIF。按 [`docs/PLAN.md`](docs/PLAN.md) 的 M1–M6 推进。
+尚未实现：outbox 的实际 MQ 投递（M2）、履约消费 / 支付 / 超时关单 / 死信补偿（M2–M3）、Redis 幂等短钥匙（M2）、前端业务页面（M4）、实验台与压测（M5）、演示 GIF（M6）。
+
+### 可用接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/health` | 健康检查，含当前数据库 provider |
+| GET | `/api/products` | 商品与可售库存 |
+| POST | `/api/orders` | 下单，body：`{ sku, quantity, idempotencyKey }` |
+| GET | `/api/orders/{id}` | 订单详情含明细 |
+
+```bash
+curl -X POST http://localhost:5080/api/orders \
+  -H 'Content-Type: application/json' \
+  -d '{"sku":"SKU-1","quantity":2,"idempotencyKey":"demo-001"}'
+```
 
 ## 启动
 
@@ -34,23 +49,27 @@ docker compose up -d
 
 > 注意：开发机当前**未安装 Docker**，因此 `docker compose up` 尚未在本机实际验证过。compose 文件按规格写全，首次在有 Docker 的机器上运行时请核对镜像拉取与 healthcheck。
 
-**方式 B：不用 Docker 的本地开发**（需要本机另外提供 MySQL / Redis / RabbitMQ）
+**方式 B：不用 Docker 的本地开发**（默认 SQLite，零外部依赖即可演示下单链路；compose 里会覆盖为 MySQL）
 
 ```bash
 dotnet run --project src/Pulse.Api           # http://localhost:5080
 cd web && npm install && npm run dev         # http://localhost:5173，/api 已代理到 5080
 ```
 
+> 本地演示库 `pulse-demo.db` 启动时自动建表并播种两个 SKU，文件已加入 `.gitignore`。
+
 ## 已实测的验证结果
 
 | 命令 | 结果 |
 |---|---|
 | `dotnet build src/Pulse.sln` | 通过，0 warning / 0 error |
-| `dotnet test`（RED，实现前） | 失败：`CS0103` 找不到 `OrderStateMachine` / `OrderStatus` |
-| `dotnet test`（GREEN，实现后） | 通过：3 个订单状态机测试 + 1 个健康检查集成测试，共 4 passed |
+| `dotnet test`（M0 RED） | 失败：`CS0103` 找不到 `OrderStateMachine` / `OrderStatus` |
+| `dotnet test`（M1 RED） | 失败：`CS0234` 找不到 `Pulse.Infrastructure.Orders` |
+| `dotnet test`（M1 GREEN） | 通过：**10 passed**（3 状态机 + 4 下单集成 + 3 API 端点） |
 | `npm --prefix web install` | 通过，111 个包 |
 | `npm --prefix web run build` | 通过，`vue-tsc` 类型检查 + Vite 构建成功（仅有 chunk >500 kB 体积提示，非错误） |
 | `docker compose up -d` | **本机无 Docker，未验证**（见 `docs/BOUNDARIES.md` 第 7 节） |
+| MySQL 初始迁移应用到真实库 | **未验证**（本机 MySQL 9.3 与规格锁定的 8 不一致，未启动服务） |
 
 未跑过的验证一律不写「通过」；后续里程碑的结果会继续追加到这张表。
 
