@@ -8,7 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <!-- M5 5.2：仅核心包，用 StdSchedulerFactory + 自定义 IJobFactory，不引入 Quartz.Extensions.Hosting。 -->
+    <PackageReference Include="Quartz" Version="3.13.0" />
   </ItemGroup>
 
   <ItemGroup>

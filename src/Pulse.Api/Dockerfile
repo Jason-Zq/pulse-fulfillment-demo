@@ -1,10 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY src/Pulse.sln src/
-COPY src/Pulse.Domain/ src/Pulse.Domain/
-COPY src/Pulse.Api/ src/Pulse.Api/
-COPY src/Pulse.Worker/ src/Pulse.Worker/
-COPY tests/Pulse.Domain.Tests/ tests/Pulse.Domain.Tests/
+COPY src/ src/
+COPY tests/ tests/
 RUN dotnet restore src/Pulse.sln \
     && dotnet publish src/Pulse.Api/Pulse.Api.csproj -c Release -o /app --no-restore
 

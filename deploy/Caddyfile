@@ -1,0 +1,23 @@
+# Pulse 边缘代理 Caddyfile
+#
+# 作用：在 compose 内部 web（nginx:80）之前做 TLS 终止 + 自动 HTTPS，
+# 把 80/443 暴露给公网，反向代理到内部 web:80（nginx 已处理 /api 与 SPA 回退）。
+#
+# 站点地址用环境变量注入（缺省为占位域名，请替换为你的真实域名）：
+#   SITE_ADDRESS=pulse.example.com  docker compose ... up -d
+# 本地无域名自测可：SITE_ADDRESS=localhost（Caddy 用本地 CA 签发，curl 需 -k）。
+#
+# 前置条件（生产）：真实域名已解析到本机公网 IP；云/防火墙开放 80 与 443 入站；
+# 80 必须可达以便 Caddy 完成 ACME HTTP-01 挑战（Let's Encrypt / ZeroSSL）。
+
+{
+    # 生产用默认 ACME；本地自测可加：
+    # email you@example.com
+}
+
+{$SITE_ADDRESS:pulse.example.com} {
+    encode gzip
+
+    # 健康检查与 API 透传交给内部 nginx；此处只做 TLS 终止 + 反向代理。
+    reverse_proxy web:80
+}

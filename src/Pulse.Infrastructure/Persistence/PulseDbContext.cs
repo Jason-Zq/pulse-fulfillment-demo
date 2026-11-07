@@ -12,6 +12,12 @@ public class PulseDbContext : DbContext
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<InventoryLedger> InventoryLedgers => Set<InventoryLedger>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
+    public DbSet<DeadLetter> DeadLetters => Set<DeadLetter>();
+    public DbSet<DailyReportRecord> DailyReportRecords => Set<DailyReportRecord>();
+    public DbSet<ExperimentResultRecord> ExperimentResultRecords => Set<ExperimentResultRecord>();
+    public DbSet<AlertRecordEntity> AlertRecordEntities => Set<AlertRecordEntity>();
+    public DbSet<LabControl> LabControls => Set<LabControl>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +78,51 @@ public class PulseDbContext : DbContext
             b.Property(x => x.EventId).HasMaxLength(64);
             b.Property(x => x.RoutingKey).HasMaxLength(128);
             b.Property(x => x.Status).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<ProcessedEvent>(b =>
+        {
+            b.HasKey(x => x.EventId);
+            b.HasIndex(x => x.EventId).IsUnique();
+            b.Property(x => x.EventId).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<DeadLetter>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.Status, x.CreatedAtUtc });
+            b.Property(x => x.OriginalEventId).HasMaxLength(64);
+            b.Property(x => x.Status).HasMaxLength(32);
+        });
+
+        // M5 5.1：日报（stat_date 主键即唯一）、实验结果、告警、运行态控制。
+        modelBuilder.Entity<DailyReportRecord>(b =>
+        {
+            b.HasKey(x => x.StatDate);
+            b.HasIndex(x => x.StatDate).IsUnique();
+            b.Property(x => x.Gmv).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<ExperimentResultRecord>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.Name, x.RanAtUtc });
+            b.Property(x => x.Name).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<AlertRecordEntity>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.AlertKey);
+            b.Property(x => x.AlertKey).HasMaxLength(128);
+            b.Property(x => x.Level).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<LabControl>(b =>
+        {
+            b.HasKey(x => x.Key);
+            b.Property(x => x.Key).HasMaxLength(32);
+            b.Property(x => x.Value).HasMaxLength(16);
         });
     }
 }

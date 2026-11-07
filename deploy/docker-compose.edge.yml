@@ -1,0 +1,30 @@
+# Pulse 边缘代理（Caddy）compose 片段
+#
+# 与基线 + 生产覆盖一起使用：
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f deploy/docker-compose.edge.yml --env-file .env.prod up -d --build
+#
+# 仅本文件向宿主机发布 80/443；中间件与 API 仍只在内网。
+# 证书存于 caddy_data 卷，续期由 Caddy 自动完成。
+
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # 由 Caddyfile 的 {$SITE_ADDRESS:...} 读取；生产请改为真实域名。
+      SITE_ADDRESS: ${SITE_ADDRESS:-pulse.example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.5"
+
+volumes:
+  caddy_data:
+  caddy_config:

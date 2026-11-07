@@ -19,6 +19,7 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # OS
 .DS_Store
@@ -26,6 +27,10 @@ Thumbs.db
 
 # 本地 dotnet 工具（dotnet-ef）
 .tools/
+
+# 验证脚本的 Python 编译产物
+__pycache__/
+*.pyc
 
 # 本地演示数据库
 *.db

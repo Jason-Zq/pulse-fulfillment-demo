@@ -1,0 +1,13 @@
+.git
+.workbuddy
+.tools
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example

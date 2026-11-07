@@ -55,6 +55,25 @@ services:
     ports:
       - "5080:8080"
 
+  worker:
+    build:
+      context: .
+      dockerfile: src/Pulse.Worker/Dockerfile
+    environment:
+      Database__Provider: "MySql"
+      ConnectionStrings__MySql: "Server=mysql;Database=${MYSQL_DATABASE:-pulse};User=root;Password=${MYSQL_ROOT_PASSWORD:-pulse_dev}"
+      ConnectionStrings__Redis: "redis:6379"
+      ConnectionStrings__RabbitMq: "host=rabbitmq"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started
+
   web:
     build:
       context: .

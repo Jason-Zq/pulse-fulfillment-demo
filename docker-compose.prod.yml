@@ -1,0 +1,113 @@
+# Pulse 生产部署 compose（独立完整文件，不叠加 docker-compose.yml）
+#
+# 用法：
+#   cp .env.prod.example .env.prod   # 填写强随机口令
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   边缘 TLS（可选）：再叠加 deploy/docker-compose.edge.yml（Caddy 发布 80/443）
+#   docker compose -f docker-compose.prod.yml -f deploy/docker-compose.edge.yml --env-file .env.prod up -d --build
+#
+# 与开发基线（docker-compose.yml）的区别——这里【不暴露任何宿主端口】：
+#   mysql / redis / rabbitmq / api / worker 只在内部网络互通，宿主机无法直连。
+#   web 也只监听容器内 80，由 Caddy 边缘代理对外发布 80/443。
+# 另外：API 注入 Swagger__Enabled=false（公网关闭 OpenAPI/Swagger UI）；
+#       Redis 启用 requirepass、RabbitMQ 使用独立账号；全部服务 restart: unless-stopped + 资源上限。
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-pulse}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.5"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-pulse}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Pulse.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      Database__Provider: "MySql"
+      ConnectionStrings__MySql: "Server=mysql;Database=${MYSQL_DATABASE:-pulse};User=root;Password=${MYSQL_ROOT_PASSWORD}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD}"
+      ConnectionStrings__RabbitMq: "host=rabbitmq;username=${RABBITMQ_DEFAULT_USER:-pulse};password=${RABBITMQ_DEFAULT_PASS}"
+      Swagger__Enabled: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/Pulse.Worker/Dockerfile
+    environment:
+      Database__Provider: "MySql"
+      ConnectionStrings__MySql: "Server=mysql;Database=${MYSQL_DATABASE:-pulse};User=root;Password=${MYSQL_ROOT_PASSWORD}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD}"
+      ConnectionStrings__RabbitMq: "host=rabbitmq;username=${RABBITMQ_DEFAULT_USER:-pulse};password=${RABBITMQ_DEFAULT_PASS}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      - api
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.5"
+
+volumes:
+  mysql_data:

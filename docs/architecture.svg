@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 660" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .tier   { fill:#94a3b8; font-size:13px; font-weight:700; letter-spacing:1px; }
+      .title  { fill:#0f172a; font-size:19px; font-weight:800; }
+      .lbl    { fill:#0f172a; font-size:14px; font-weight:700; }
+      .sub    { fill:#334155; font-size:11px; }
+      .num    { fill:#ffffff; font-size:15px; font-weight:800; }
+      .step   { fill:#0f172a; font-size:12px; font-weight:700; }
+      .cap    { fill:#475569; font-size:12px; }
+      .box    { stroke-width:1.5; rx:10; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="920" height="660" fill="#f8fafc"/>
+  <text x="24" y="34" class="title">Pulse 订单履约中台 · 全链路架构</text>
+  <text x="24" y="54" class="cap">用户端 → Nginx → API(.NET 8) → MySQL 事务 + Outbox → RabbitMQ → Worker → 库存实扣 → 日报。后端 .NET 8 + Redis + RabbitMQ + MySQL 一一对应真实问题。</text>
+
+  <!-- ===== 用户层 ===== -->
+  <text x="24" y="84" class="tier">用户层</text>
+  <rect x="40" y="94" width="220" height="62" class="box" fill="#e8f6ef" stroke="#42b883"/>
+  <text x="150" y="120" text-anchor="middle" class="lbl">商城前台</text>
+  <text x="150" y="140" text-anchor="middle" class="sub">Vue 3 + Element Plus</text>
+
+  <rect x="290" y="94" width="220" height="62" class="box" fill="#eaf3ff" stroke="#409eff"/>
+  <text x="400" y="120" text-anchor="middle" class="lbl">运营后台</text>
+  <text x="400" y="140" text-anchor="middle" class="sub">Element Plus 管理台（8 页）</text>
+
+  <rect x="560" y="94" width="320" height="62" class="box" fill="#fff7ed" stroke="#f59e0b"/>
+  <text x="720" y="118" text-anchor="middle" class="lbl">演示环境声明（常驻）</text>
+  <text x="720" y="138" text-anchor="middle" class="sub">全部数据为模拟 · 不涉及真实交易</text>
+
+  <!-- user -> nginx -->
+  <path d="M150,156 L150,188" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M400,156 L400,188" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- ===== 服务层 ===== -->
+  <text x="24" y="212" class="tier">服务层（.NET 8）</text>
+  <rect x="40" y="222" width="180" height="72" class="box" fill="#eef2ff" stroke="#6366f1"/>
+  <text x="130" y="250" text-anchor="middle" class="lbl">Nginx 反向代理</text>
+  <text x="130" y="270" text-anchor="middle" class="sub">:8080 · /api 转发 API</text>
+
+  <rect x="250" y="222" width="200" height="72" class="box" fill="#efeafc" stroke="#512bd4"/>
+  <text x="350" y="250" text-anchor="middle" class="lbl">API 网关</text>
+  <text x="350" y="270" text-anchor="middle" class="sub">下单事务 / Outbox / 支付入口</text>
+
+  <rect x="480" y="222" width="200" height="72" class="box" fill="#efeafc" stroke="#512bd4"/>
+  <text x="580" y="250" text-anchor="middle" class="lbl">Worker 履约</text>
+  <text x="580" y="270" text-anchor="middle" class="sub">消费判重 / 库存实扣 / 超时关单</text>
+
+  <rect x="710" y="222" width="170" height="72" class="box" fill="#eef0f2" stroke="#6b7280"/>
+  <text x="795" y="250" text-anchor="middle" class="lbl">Quartz 调度</text>
+  <text x="795" y="270" text-anchor="middle" class="sub">01:00 四方对账日报</text>
+
+  <!-- nginx -> api -->
+  <path d="M220,258 L248,258" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <!-- api <-> middleware (down) -->
+  <path d="M350,294 L350,346" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M410,294 L470,346" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <!-- worker <-> middleware (down) -->
+  <path d="M580,294 L520,346" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M600,294 L680,346" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <!-- worker -> rabbitmq consume (up-left) handled by arrow into rabbitmq -->
+  <path d="M540,294 L450,346" stroke="#475569" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <!-- quartz -> mysql (down) -->
+  <path d="M795,294 L165,346" stroke="#475569" stroke-width="1.2" stroke-dasharray="2 4" marker-end="url(#arrow)"/>
+
+  <!-- ===== 中间件层（硬性要求三件套） ===== -->
+  <text x="24" y="386" class="tier">中间件层（项目硬性要求 · 各对应一个真实问题）</text>
+  <rect x="40" y="396" width="250" height="86" class="box" fill="#e3f2f6" stroke="#00758f"/>
+  <text x="165" y="422" text-anchor="middle" class="lbl">MySQL 8（事务事实源）</text>
+  <text x="165" y="442" text-anchor="middle" class="sub">orders / order_items / inventory_ledger</text>
+  <text x="165" y="460" text-anchor="middle" class="sub">outbox / dead_letters / daily_reports</text>
+
+  <rect x="330" y="396" width="260" height="86" class="box" fill="#fff0e6" stroke="#ff6600"/>
+  <text x="460" y="422" text-anchor="middle" class="lbl">RabbitMQ 3.x（异步解耦）</text>
+  <text x="460" y="442" text-anchor="middle" class="sub">ex.orders → q.fulfillment</text>
+  <text x="460" y="460" text-anchor="middle" class="sub">TTL+DLX → q.fulfillment.retry → q.dlq</text>
+
+  <rect x="630" y="396" width="250" height="86" class="box" fill="#fdeceb" stroke="#d82c20"/>
+  <text x="755" y="422" text-anchor="middle" class="lbl">Redis 7（幂等 / 去重）</text>
+  <text x="755" y="442" text-anchor="middle" class="sub">idem:{token} 短钥匙</text>
+  <text x="755" y="460" text-anchor="middle" class="sub">dedup:{event_id} 消费双保险 / alert:*</text>
+
+  <!-- ===== 链路步骤（与后台 Dashboard 泳道一致） ===== -->
+  <text x="24" y="520" class="tier">链路步骤（后台 Dashboard 泳道节点顺序一致）</text>
+  <g>
+    <rect x="40"  y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="96"  y="556" text-anchor="middle" class="num">1</text>
+    <text x="96"  y="578" text-anchor="middle" class="step" fill="#e2e8f0">下单事务</text>
+    <rect x="162" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="218" y="556" text-anchor="middle" class="num">2</text>
+    <text x="218" y="578" text-anchor="middle" class="step" fill="#e2e8f0">Outbox</text>
+    <rect x="284" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="340" y="556" text-anchor="middle" class="num">3</text>
+    <text x="340" y="578" text-anchor="middle" class="step" fill="#e2e8f0">消息投递</text>
+    <rect x="406" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="462" y="556" text-anchor="middle" class="num">4</text>
+    <text x="462" y="578" text-anchor="middle" class="step" fill="#e2e8f0">消费判重</text>
+    <rect x="528" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="584" y="556" text-anchor="middle" class="num">5</text>
+    <text x="584" y="578" text-anchor="middle" class="step" fill="#e2e8f0">库存实扣</text>
+    <rect x="650" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="706" y="556" text-anchor="middle" class="num">6</text>
+    <text x="706" y="578" text-anchor="middle" class="step" fill="#e2e8f0">死信补偿</text>
+    <rect x="772" y="532" width="112" height="58" rx="10" fill="#0f172a"/>
+    <text x="828" y="556" text-anchor="middle" class="num">7</text>
+    <text x="828" y="578" text-anchor="middle" class="step" fill="#e2e8f0">日报落表</text>
+  </g>
+  <g stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)">
+    <path d="M152,561 L160,561"/>
+    <path d="M274,561 L282,561"/>
+    <path d="M396,561 L404,561"/>
+    <path d="M518,561 L526,561"/>
+    <path d="M640,561 L648,561"/>
+    <path d="M762,561 L770,561"/>
+  </g>
+
+  <text x="24" y="624" class="cap">每个中间件都对应一个讲得深的真实问题：MySQL=分布式事务与 Outbox 解决「库写成功但消息没发」；RabbitMQ=TTL+DLX 实现超时关单与重试/死信闭环；Redis=下单幂等短钥匙 + 消费端 dedup 双保险防重复履约。</text>
+</svg>

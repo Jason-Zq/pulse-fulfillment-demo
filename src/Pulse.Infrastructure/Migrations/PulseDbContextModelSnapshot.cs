@@ -19,6 +19,143 @@ namespace Pulse.Infrastructure.Migrations
                 .HasAnnotation("ProductVersion", "8.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.AlertRecordEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AlertKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("Silenced")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("SilencedUntilUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlertKey");
+
+                    b.ToTable("AlertRecordEntities");
+                });
+
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.DailyReportRecord", b =>
+                {
+                    b.Property<DateOnly>("StatDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CancelCnt")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Gmv")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderCnt")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaidCnt")
+                        .HasColumnType("int");
+
+                    b.HasKey("StatDate");
+
+                    b.HasIndex("StatDate")
+                        .IsUnique();
+
+                    b.ToTable("DailyReportRecords");
+                });
+
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.DeadLetter", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Error")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("HandledAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OriginalEventId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("DeadLetters");
+                });
+
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.ExperimentResultRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Params")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("Passed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("RanAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name", "RanAtUtc");
+
+                    b.ToTable("ExperimentResultRecords");
+                });
+
             modelBuilder.Entity("Pulse.Infrastructure.Persistence.Inventory", b =>
                 {
                     b.Property<string>("Sku")
@@ -70,6 +207,25 @@ namespace Pulse.Infrastructure.Migrations
                     b.HasIndex("Sku", "CreatedAtUtc");
 
                     b.ToTable("InventoryLedgers");
+                });
+
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.LabControl", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("LabControls");
                 });
 
             modelBuilder.Entity("Pulse.Infrastructure.Persistence.Order", b =>
@@ -191,6 +347,23 @@ namespace Pulse.Infrastructure.Migrations
                     b.HasIndex("Status", "CreatedAtUtc");
 
                     b.ToTable("OutboxMessages");
+                });
+
+            modelBuilder.Entity("Pulse.Infrastructure.Persistence.ProcessedEvent", b =>
+                {
+                    b.Property<string>("EventId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("ProcessedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessedEvents");
                 });
 
             modelBuilder.Entity("Pulse.Infrastructure.Persistence.Product", b =>
