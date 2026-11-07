@@ -1,21 +1,51 @@
 <template>
   <div class="shop-layout">
     <ElAlert :title="DEMO_BANNER" type="warning" :closable="false" show-icon />
-    <header class="shop-topbar">
-      <RouterLink class="brand" to="/">
-        <span class="brand-mark">P</span>
-        <span>Pulse<span class="brand-sub"> · 演示商城</span></span>
-      </RouterLink>
-      <ElMenu :default-active="activePath" mode="horizontal" router class="shop-nav">
-        <ElMenuItem v-for="item in shopNav" :key="item.path" :index="item.path">
-          {{ item.title }}
-        </ElMenuItem>
-      </ElMenu>
-      <RouterLink class="cart-link" to="/cart">
-        <span class="cart-label">购物车</span>
-        <span class="cart-badge">{{ cart.totalCount }}</span>
-      </RouterLink>
-    </header>
+    <div class="shop-header">
+      <header class="shop-topbar">
+        <RouterLink class="brand" to="/">
+          <span class="brand-mark">P</span>
+          <span>Pulse<span class="brand-sub"> · 演示商城</span></span>
+        </RouterLink>
+        <form class="shop-search" @submit.prevent="submitSearch">
+          <ElInput
+            v-model="search"
+            class="shop-search__input"
+            placeholder="搜索商品名称 / SKU"
+            clearable
+            @keyup.enter="submitSearch"
+          >
+            <template #append>
+              <ElButton type="primary" @click="submitSearch">搜索</ElButton>
+            </template>
+          </ElInput>
+        </form>
+        <nav class="shop-topnav">
+          <RouterLink to="/orders">我的订单</RouterLink>
+          <RouterLink to="/member">会员中心</RouterLink>
+          <RouterLink to="/admin/dashboard" class="shop-topnav__optional">运营后台</RouterLink>
+          <RouterLink to="/about" class="shop-topnav__optional">关于</RouterLink>
+        </nav>
+        <RouterLink class="cart-link" to="/cart">
+          <span class="cart-label">购物车</span>
+          <span class="cart-badge">{{ cart.totalCount }}</span>
+        </RouterLink>
+      </header>
+      <nav class="shop-catbar">
+        <RouterLink
+          class="shop-catbar__item"
+          :class="{ 'is-active': activeCategory === '' }"
+          :to="{ path: '/' }"
+        >全部商品</RouterLink>
+        <RouterLink
+          v-for="c in PRODUCT_CATEGORIES"
+          :key="c"
+          class="shop-catbar__item"
+          :class="{ 'is-active': activeCategory === c }"
+          :to="{ path: '/', query: { category: c } }"
+        >{{ c }}</RouterLink>
+      </nav>
+    </div>
     <main class="shop-body">
       <RouterView />
     </main>
@@ -27,15 +57,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, RouterLink, RouterView } from 'vue-router'
-import { ElAlert, ElMenu, ElMenuItem } from 'element-plus'
-import { DEMO_BANNER, shopNav } from '../router/routes'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
+import { ElAlert, ElInput, ElButton } from 'element-plus'
+import { DEMO_BANNER } from '../router/routes'
+import { PRODUCT_CATEGORIES } from '../utils/categories'
 import { useCartStore } from '../stores/cart'
 
 const route = useRoute()
+const router = useRouter()
 const cart = useCartStore()
-const activePath = computed(() => route.path)
+
+const activeCategory = computed(() =>
+  typeof route.query.category === 'string' && route.query.category !== 'all'
+    ? route.query.category
+    : '',
+)
+
+const search = ref('')
+function submitSearch(): void {
+  const q = search.value.trim()
+  const query: Record<string, string> = {}
+  if (q) query.q = q
+  if (activeCategory.value) query.category = activeCategory.value
+  router.push({ path: '/', query })
+}
 </script>
 
 <style>
@@ -195,6 +241,7 @@ const activePath = computed(() => route.path)
 }
 
 .shop-toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
+.shop-result-count { font-size: 13px; color: var(--shop-muted); align-self: center; }
 
 .product-grid {
   display: grid;
@@ -248,17 +295,13 @@ const activePath = computed(() => route.path)
 
 <style scoped>
 .shop-layout { min-height: 100vh; background: var(--shop-bg); }
+.shop-header {
+  position: sticky; top: 0; z-index: 10;
+  background: #fff; box-shadow: 0 1px 0 var(--shop-line);
+}
 .shop-topbar {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 0 28px;
-  height: 60px;
-  background: #fff;
-  border-bottom: 1px solid var(--shop-line);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  display: flex; align-items: center; gap: 18px;
+  padding: 0 28px; height: 60px;
 }
 .brand {
   display: flex; align-items: center; gap: 9px;
@@ -271,7 +314,13 @@ const activePath = computed(() => route.path)
   background: var(--shop-brand); color: #fff; font-size: 15px; font-weight: 700;
 }
 .brand-sub { font-weight: 400; color: var(--shop-muted); font-size: 13px; }
-.shop-nav { flex: 1; border-bottom: none; }
+.shop-search { flex: 1; max-width: 480px; }
+.shop-search__input { width: 100%; }
+.shop-topnav { display: flex; align-items: center; gap: 18px; }
+.shop-topnav a {
+  color: var(--shop-muted); text-decoration: none; font-size: 13px; white-space: nowrap;
+}
+.shop-topnav a:hover { color: var(--shop-brand-deep); }
 .cart-link {
   display: flex; align-items: center; gap: 7px;
   color: var(--shop-brand-deep); text-decoration: none; font-size: 13px; white-space: nowrap;
@@ -282,15 +331,32 @@ const activePath = computed(() => route.path)
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--shop-brand); color: #fff; font-size: 12px; font-weight: 600;
 }
-.shop-body { min-height: calc(100vh - 140px); }
+.shop-catbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 9px 28px; border-top: 1px solid var(--shop-line);
+}
+.shop-catbar__item {
+  padding: 5px 14px; border-radius: 999px; font-size: 13px;
+  color: var(--shop-ink); text-decoration: none; white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.shop-catbar__item:hover { background: var(--shop-brand-soft); color: var(--shop-brand-deep); }
+.shop-catbar__item.is-active {
+  background: var(--shop-brand); color: #fff; font-weight: 600;
+}
+.shop-body { min-height: calc(100vh - 160px); padding-bottom: 8px; }
 .shop-footer {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
   padding: 20px 28px; border-top: 1px solid var(--shop-line);
   color: #94a3b8; font-size: 12px; background: #fff;
 }
 @media (max-width: 700px) {
-  .shop-topbar { padding: 0 14px; gap: 8px; }
+  .shop-topbar { padding: 0 14px; gap: 10px; }
   .brand-sub, .cart-label { display: none; }
-  .shop-nav :deep(.el-menu-item) { padding: 0 8px; font-size: 12px; }
+  .shop-search { max-width: none; }
+  .shop-topnav { gap: 10px; }
+  .shop-topnav a { font-size: 12px; }
+  .shop-topnav__optional { display: none; }
+  .shop-catbar { padding: 8px 14px; }
 }
 </style>

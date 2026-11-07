@@ -19,6 +19,27 @@
           <div class="shop-spacer"></div>
           <ElButton size="small" @click="polling.refresh()">刷新状态</ElButton>
         </div>
+
+        <ElSteps :active="activeStep" finish-status="success" align-center class="order-steps">
+          <ElStep title="提交订单" description="MySQL 事务 + outbox" />
+          <ElStep title="模拟支付" description="写入 order.paid" />
+          <ElStep title="模拟发货" description="Worker 库存实扣" />
+          <ElStep title="已完成" description="四方对账" />
+        </ElSteps>
+        <ElAlert
+          v-if="order.status === 'Cancelled'"
+          title="订单已关闭（取消或 15 分钟 TTL 到期），预扣库存已释放"
+          type="info" :closable="false" show-icon class="order-alert"
+        />
+
+        <div v-if="order.status === 'Created'" class="order-callout">
+          <div>
+            <div class="order-callout__title">待支付 · 请在关单截止前完成模拟支付</div>
+            <div class="shop-note">不涉及真实收款；模拟支付会触发 Worker 异步履约，状态将在 3 秒内自动刷新。</div>
+          </div>
+          <ElButton type="primary" :loading="paying" @click="pay">立即模拟支付 · 演示</ElButton>
+        </div>
+
         <div class="shop-detail-kv">
           <div><span class="shop-kv__k">订单金额</span><div class="shop-total"><strong>¥ {{ Number(order.totalAmount).toFixed(2) }}</strong></div></div>
           <div><span class="shop-kv__k">下单时间（UTC）</span><div class="shop-kv__v shop-mono">{{ order.createdAtUtc }}</div></div>
@@ -35,11 +56,21 @@
           >
             模拟支付 · 演示
           </ElButton>
+          <ElButton
+            :disabled="order.status !== 'Paid'"
+            :loading="shipping"
+            @click="ship"
+          >
+            模拟发货 · 演示
+          </ElButton>
           <ElButton :disabled="order.status !== 'Created'" @click="cancel">取消订单</ElButton>
+          <RouterLink to="/"><ElButton text>继续选购</ElButton></RouterLink>
           <span class="shop-note">
             {{ order.status === 'Created'
               ? '点击后会在同一事务写入 order.paid 消息，由 Worker 异步完成库存实扣；不涉及任何真实收款。'
-              : '当前状态不可再发起模拟支付。支付后的状态变化由 3 秒轮询呈现。' }}
+              : order.status === 'Paid'
+                ? '已模拟支付，可点击「模拟发货」把订单推进到 Shipped；不涉及任何真实物流。'
+                : '当前状态不可再发起模拟支付。支付后的状态变化由 3 秒轮询呈现。' }}
           </span>
         </div>
       </div>
@@ -97,11 +128,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import {
   ElButton, ElTag, ElAlert, ElTable, ElTableColumn,
-  ElTimeline, ElTimelineItem, ElMessage,
+  ElTimeline, ElTimelineItem, ElMessage, ElSteps, ElStep,
 } from 'element-plus'
 import { api } from '../api/client'
 import type { OrderDetail } from '../api/types'
@@ -114,6 +145,17 @@ const id = String(route.params.id ?? '')
 const order = ref<OrderDetail | null>(null)
 const error = ref('')
 const paying = ref(false)
+const shipping = ref(false)
+
+const activeStep = computed(() => {
+  switch (order.value?.status) {
+    case 'Created': return 1
+    case 'Paid': return 2
+    case 'Shipped': return 3
+    case 'Completed': return 4
+    default: return 1
+  }
+})
 
 async function load(): Promise<void> {
   try {
@@ -141,6 +183,19 @@ async function pay(): Promise<void> {
   }
 }
 
+async function ship(): Promise<void> {
+  shipping.value = true
+  try {
+    await api.shipOrder(id)
+    ElMessage.success('已发起模拟发货，订单将推进到已发货（不涉及真实物流）')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '模拟发货失败')
+  } finally {
+    shipping.value = false
+    polling.refresh()
+  }
+}
+
 async function cancel(): Promise<void> {
   try {
     await api.cancelOrder(id)
@@ -163,5 +218,13 @@ async function cancel(): Promise<void> {
   margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--shop-line);
 }
 .shop-action-bar .shop-note { flex: 1; min-width: 220px; }
+.order-steps { margin: 26px 0 18px; }
+.order-alert { margin-bottom: 16px; }
+.order-callout {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 18px; padding: 14px 18px; border-radius: 10px;
+  background: #fff8ec; border: 1px solid #f6d9a8;
+}
+.order-callout__title { font-size: 15px; font-weight: 620; color: #92400e; margin-bottom: 4px; }
 @media (max-width: 860px) { .shop-detail-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

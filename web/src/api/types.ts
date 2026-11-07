@@ -104,6 +104,8 @@ export interface Product {
   reserved: number
   deducted: number
   status: string
+  /** 商品分类（后端 Product.Category），前端分类导航与筛选使用。 */
+  category: string
   /** M6a：乐观锁版本号，后端 M6b 才落地，可选以兼容 M4/M5 响应。 */
   version?: number
 }

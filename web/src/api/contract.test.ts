@@ -95,9 +95,11 @@ describe('契约回归 — id 类型与商品字段（后端 long → JSON numbe
       reserved: 2,
       deducted: 0,
       status: 'active',
+      category: '数码电器',
     }
+    // M7：后端 Product.Category 外显后，GET /api/products 由 8 字段扩展到 9 字段。
     expect(Object.keys(product).sort()).toEqual([
-      'available', 'deducted', 'id', 'name', 'price', 'reserved', 'sku', 'status',
+      'available', 'category', 'deducted', 'id', 'name', 'price', 'reserved', 'sku', 'status',
     ])
     expect(typeof product.id).toBe('number')
     expectTypeOf(product.id).toEqualTypeOf<number>()

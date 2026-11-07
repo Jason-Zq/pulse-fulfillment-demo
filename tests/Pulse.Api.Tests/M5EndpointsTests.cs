@@ -304,12 +304,19 @@ public class M5EndpointsTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         AssertHas(doc.RootElement, "status", "productsSeeded", "clearedAtUtc");
-        Assert.Equal(2, doc.RootElement.GetProperty("productsSeeded").GetInt32());
+        Assert.Equal(DemoCatalog.Products.Count,
+            doc.RootElement.GetProperty("productsSeeded").GetInt32());
 
         // 实验结果表应被保留。
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<PulseDbContext>();
         Assert.Equal(1, db.ExperimentResultRecords.Count());
+
+        // M7 回归：reset 必须与启动种子同源，回填 8 个 SKU 且带分类，
+        // 否则「重置演示数据」会把商城打回 2 个无分类商品。
+        Assert.Equal(DemoCatalog.Products.Count, db.Products.Count());
+        Assert.Equal(5, db.Products.Select(p => p.Category).Distinct().Count());
+        Assert.All(db.Products, p => Assert.False(string.IsNullOrWhiteSpace(p.Category)));
     }
 
     // ---- 8. GET /api/experiments ----

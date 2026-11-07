@@ -8,6 +8,11 @@
       <RouterLink to="/"><ElButton text>继续选购 →</ElButton></RouterLink>
     </div>
 
+    <div v-if="pendingCount > 0" class="orders-pending">
+      <span>当前页有 <strong>{{ pendingCount }}</strong> 笔订单待模拟支付，15 分钟未支付会由 TTL + DLX 自动关单。</span>
+      <RouterLink :to="`/order/${firstPendingId}`"><ElButton size="small" type="primary">去支付</ElButton></RouterLink>
+    </div>
+
     <div class="shop-panel">
       <div class="shop-toolbar">
         <ElInput v-model="filters.orderNo" clearable placeholder="按订单号搜索" style="width: 220px" @keyup.enter="onSearch" />
@@ -36,10 +41,13 @@
             <template #default="{ row }">¥ {{ Number(row.totalAmount).toFixed(2) }}</template>
           </ElTableColumn>
           <ElTableColumn prop="createdAtUtc" label="下单时间（UTC）" />
-          <ElTableColumn label="操作" width="180">
+          <ElTableColumn label="操作" width="220">
             <template #default="{ row }">
               <div class="shop-row">
-                <RouterLink :to="`/order/${row.id}`"><ElButton size="small">详情</ElButton></RouterLink>
+                <RouterLink v-if="row.status === 'Created'" :to="`/order/${row.id}`">
+                  <ElButton size="small" type="primary">去支付</ElButton>
+                </RouterLink>
+                <RouterLink v-else :to="`/order/${row.id}`"><ElButton size="small">详情</ElButton></RouterLink>
                 <ElButton size="small" :disabled="row.status !== 'Created'" @click="cancelOne(row.id)">取消</ElButton>
               </div>
             </template>
@@ -66,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   ElButton, ElInput, ElSelect, ElOption, ElTable, ElTableColumn,
@@ -87,6 +95,10 @@ const filters = reactive({ orderNo: '', status: '', page: 1, pageSize: 10 })
 const orders = ref<OrderListItem[]>([])
 const total = ref(0)
 const error = ref('')
+
+const pendingOrders = computed(() => orders.value.filter((o) => o.status === 'Created'))
+const pendingCount = computed(() => pendingOrders.value.length)
+const firstPendingId = computed(() => pendingOrders.value[0]?.id ?? '')
 
 async function load(): Promise<void> {
   try {
@@ -124,3 +136,13 @@ async function cancelOne(id: number): Promise<void> {
   }
 }
 </script>
+
+<style scoped>
+.orders-pending {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 16px; padding: 12px 18px; border-radius: 10px;
+  background: #fff8ec; border: 1px solid #f6d9a8;
+  font-size: 13px; color: #92400e;
+}
+.orders-pending strong { font-size: 16px; }
+</style>

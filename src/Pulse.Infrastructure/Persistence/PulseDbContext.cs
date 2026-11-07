@@ -28,6 +28,7 @@ public class PulseDbContext : DbContext
             b.Property(x => x.Sku).HasMaxLength(64).IsRequired();
             b.Property(x => x.Name).HasMaxLength(200).IsRequired();
             b.Property(x => x.Price).HasPrecision(18, 2);
+            b.Property(x => x.Category).HasMaxLength(32);
         });
 
         modelBuilder.Entity<Inventory>(b =>

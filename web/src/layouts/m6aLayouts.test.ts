@@ -10,9 +10,10 @@ function mustContain(src: string, tokens: string[]): void {
 }
 
 describe('M6a 布局骨架静态契约 — 界面本身就是技术叙事', () => {
-  it('ShopLayout.vue：shopNav 全局导航 + 购物车角标 + 常驻演示声明 + RouterView', () => {
+  it('ShopLayout.vue：全局搜索 + 分类导航 + 购物车角标 + 常驻演示声明 + RouterView', () => {
     mustContain(shopLayoutSource, [
-      'shopNav', 'useCartStore', 'totalCount', 'DEMO_BANNER', 'RouterView', 'ElMenu',
+      'useCartStore', 'totalCount', 'DEMO_BANNER', 'RouterView',
+      'PRODUCT_CATEGORIES', 'submitSearch',
     ])
   })
 

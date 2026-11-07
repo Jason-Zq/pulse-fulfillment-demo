@@ -170,13 +170,23 @@ check("健康检查显示数据库为 mysql（非本地 sqlite）",
 st, h2 = http("GET", "/api/health", base=DIRECT)
 check("api 5080 直连健康检查 200", st == 200 and isinstance(h2, dict), h2)
 st, prods = http("GET", "/api/products")
-check("/api/products 返回 2 个商品", st == 200 and len(prods) == 2, "count=%s" % (len(prods) if prods else prods))
-# M6b v0.2：只新增 version（乐观锁版本号），其余 8 字段与类型原样保留。
-check("Product DTO 9 字段齐全（M6b 新增 version）",
-      set(prods[0].keys()) == {"id", "sku", "name", "price", "available", "reserved",
-                               "deducted", "status", "version"},
-      sorted(prods[0].keys()))
-check("商品 id 为 number", isinstance(prods[0]["id"], int))
+# M8：启动种子与 /api/lab/reset 同源于 DemoCatalog（8 个 SKU / 5 个分类），不再只有 2 个演示 SKU。
+check("/api/products 返回 8 个商品",
+      st == 200 and isinstance(prods, list) and len(prods) == 8,
+      "count=%s" % (len(prods) if isinstance(prods, list) else prods))
+# 字段演进：M4 的 8 字段 → M6b 加 version（9）→ M8 加 category（10）。字段名集合必须完全相等。
+check("Product DTO 10 字段齐全（M6b version + M8 category）",
+      isinstance(prods, list) and bool(prods)
+      and set(prods[0].keys()) == {"id", "sku", "name", "price", "available", "reserved",
+                                   "deducted", "status", "version", "category"},
+      sorted(prods[0].keys()) if isinstance(prods, list) and prods else prods)
+check("8 个商品覆盖 5 个分类且无空分类",
+      isinstance(prods, list) and bool(prods)
+      and len({p.get("category") for p in prods}) == 5
+      and all(isinstance(p.get("category"), str) and p["category"].strip() for p in prods),
+      sorted({str(p.get("category")) for p in prods}) if isinstance(prods, list) else prods)
+check("商品 id 为 number",
+      isinstance(prods, list) and bool(prods) and isinstance(prods[0]["id"], int))
 check("MySQL 初始订单数为 0", scalar("SELECT COUNT(*) FROM Orders;") == "0")
 check("MySQL 迁移至少 2 条（M5 生成第 3 条后为 3）",
       int(scalar("SELECT COUNT(*) FROM __EFMigrationsHistory;") or 0) >= 2,
@@ -533,8 +543,23 @@ if M5:
     fieldset(rst, ["status", "productsSeeded", "clearedAtUtc"], "ResetResult 字段")
     check("一键重置后订单清空", scalar("SELECT COUNT(*) FROM Orders;") == "0",
           scalar("SELECT COUNT(*) FROM Orders;"))
-    check("一键重置后重新播种 2 个商品", scalar("SELECT COUNT(*) FROM Products;") == "2",
+    # M8：reset 与启动种子共用 DemoCatalog，避免「一键重置把商城打回 2 个无分类 SKU」的种子漂移。
+    check("reset 的 productsSeeded 与 DemoCatalog 一致（8）",
+          isinstance(rst, dict) and rst.get("productsSeeded") == 8,
+          rst.get("productsSeeded") if isinstance(rst, dict) else rst)
+    check("一键重置后重新播种 8 个商品", scalar("SELECT COUNT(*) FROM Products;") == "8",
           scalar("SELECT COUNT(*) FROM Products;"))
+    check("reset 后 5 个商品分类齐全",
+          scalar("SELECT COUNT(DISTINCT Category) FROM Products;") == "5",
+          scalar("SELECT COUNT(DISTINCT Category) FROM Products;"))
+    check("reset 后无空分类（Category 非空且非空白）",
+          scalar("SELECT COUNT(*) FROM Products WHERE Category IS NULL OR TRIM(Category) = '';") == "0",
+          scalar("SELECT COUNT(*) FROM Products WHERE Category IS NULL OR TRIM(Category) = '';"))
+    st, reset_prods = http("GET", "/api/products")
+    check("reset 后 /api/products 仍为 8 个且每项带 category",
+          st == 200 and isinstance(reset_prods, list) and len(reset_prods) == 8
+          and all(isinstance(p.get("category"), str) and p["category"].strip() for p in reset_prods),
+          "count=%s" % (len(reset_prods) if isinstance(reset_prods, list) else reset_prods))
     st, exp_after = http("GET", "/api/experiments")
     check("一键重置保留 experiment_results 留痕",
           st == 200 and isinstance(exp_after, list) and len(exp_after) >= 1,

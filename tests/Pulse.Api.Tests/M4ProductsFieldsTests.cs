@@ -7,8 +7,10 @@ using Pulse.Infrastructure.Persistence;
 namespace Pulse.Api.Tests;
 
 /// <summary>
-/// M4 契约对齐 #3：GET /api/products 每个 item 须返回 8 个字段
+/// M4 契约对齐 #3：GET /api/products 每个 item 须返回
 /// { id, sku, name, price, available, reserved, deducted, status }。
+/// 字段演进：M6b 新增 version、M8 新增 category，当前真响应共 10 字段；
+/// 方法名沿用 M4 历史命名，末尾另断言 category 存在。
 /// deducted = 同 SKU 下 ChangeType=="Deduct" 的 Quantity 之和（无流水为 0），
 /// status = IsActive ? "active" : "inactive"。独立临时 SQLite 库。
 /// </summary>
@@ -137,6 +139,7 @@ public class M4ProductsFieldsTests : IDisposable
         Assert.Equal(10, deductedEl.GetInt32()); // 4 + 6；Reserve 999 与其它 SKU 的 1000 不计入
         Assert.True(el.TryGetProperty("status", out var statusEl), "GET /api/products item 缺少 status 字段");
         Assert.Equal("active", statusEl.GetString());
+        Assert.True(el.TryGetProperty("category", out _), "GET /api/products item 缺少 category 字段");
     }
 
     [Fact]

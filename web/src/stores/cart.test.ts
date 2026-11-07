@@ -13,6 +13,7 @@ function product(sku: string, price: number, available: number): Product {
     reserved: 0,
     deducted: 0,
     status: 'OnSale',
+    category: '数码电器',
   }
 }
 
@@ -86,5 +87,77 @@ describe('cart store — 购物车增删与合计', () => {
     const cart = useCartStore()
     cart.add(product('S1', 10, 5), 2)
     expect(cart.toOrderItems()).toEqual([{ sku: 'S1', quantity: 2 }])
+  })
+})
+
+describe('cart store — M7 行级勾选（仅结算已选）', () => {
+  it('新加入的商品默认勾选，allSelected 为真', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5))
+    cart.add(product('S2', 20, 3))
+    expect(cart.hasSelection).toBe(true)
+    expect(cart.allSelected).toBe(true)
+    expect(cart.selectedLines).toHaveLength(2)
+  })
+
+  it('toggleSelect 可取消 / 恢复单行勾选', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5))
+    cart.toggleSelect('S1')
+    expect(cart.isSelected('S1')).toBe(false)
+    expect(cart.selectedLines).toHaveLength(0)
+    cart.toggleSelect('S1')
+    expect(cart.isSelected('S1')).toBe(true)
+  })
+
+  it('toggleAll 在全选 / 全不选之间切换', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5))
+    cart.add(product('S2', 20, 3))
+    cart.toggleAll()
+    expect(cart.hasSelection).toBe(false)
+    expect(cart.allSelected).toBe(false)
+    cart.toggleAll()
+    expect(cart.allSelected).toBe(true)
+  })
+
+  it('selectedTotalAmount 只累计已勾选行', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5), 2)
+    cart.add(product('S2', 20, 3), 1)
+    expect(cart.selectedTotalAmount).toBe(40)
+    expect(cart.selectedTotalCount).toBe(3)
+    cart.toggleSelect('S1')
+    expect(cart.selectedTotalAmount).toBe(20)
+    expect(cart.selectedTotalCount).toBe(1)
+    expect(cart.totalAmount).toBe(40)
+  })
+
+  it('selectedItems 只返回已勾选的 sku + quantity', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5), 2)
+    cart.add(product('S2', 20, 3), 1)
+    cart.toggleSelect('S2')
+    expect(cart.selectedItems()).toEqual([{ sku: 'S1', quantity: 2 }])
+  })
+
+  it('remove / clear 会清理选中态，不留悬空 sku', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5))
+    cart.add(product('S2', 20, 3))
+    cart.remove('S1')
+    expect(cart.selected).toEqual(['S2'])
+    expect(cart.allSelected).toBe(true)
+    cart.clear()
+    expect(cart.selected).toEqual([])
+    expect(cart.hasSelection).toBe(false)
+  })
+
+  it('setQuantity 归零移除该行时同步清理选中态', () => {
+    const cart = useCartStore()
+    cart.add(product('S1', 10, 5))
+    cart.setQuantity('S1', 0)
+    expect(cart.lines).toHaveLength(0)
+    expect(cart.selected).toEqual([])
   })
 })

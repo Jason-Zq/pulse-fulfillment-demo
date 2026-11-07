@@ -24,6 +24,8 @@ import { computed } from 'vue'
 const props = defineProps<{
   sku: string
   name?: string
+  /** 多图画廊视角序号：同一 SKU 不同 variant 得到不同配色的占位图。 */
+  variant?: number
 }>()
 
 const PALETTE: Array<[string, string]> = [
@@ -40,13 +42,18 @@ function hash(text: string): number {
   return h
 }
 
-const seed = computed(() => hash(props.sku || 'SKU'))
+// variant 参与散列：同一 SKU 的 4 个视角得到不同渐变与构图，仍是零外部资源。
+const seed = computed(() => hash(`${props.sku || 'SKU'}:${props.variant ?? 0}`))
 const pair = computed(() => PALETTE[seed.value % PALETTE.length])
 const from = computed(() => pair.value[0])
 const to = computed(() => pair.value[1])
 const cx = computed(() => 40 + (seed.value % 70))
 const gradientId = computed(() => `thumb-grad-${seed.value}`)
-const initials = computed(() => (props.sku || 'SKU').slice(-2).toUpperCase())
+// 占位图大字取商品名前两字（而非 SKU 尾号 "-1" 这类调试感编号）；无名称时回退 SKU。
+const initials = computed(() => {
+  const label = (props.name || props.sku || 'SKU').trim()
+  return label.slice(0, 2).toUpperCase()
+})
 </script>
 
 <style scoped>

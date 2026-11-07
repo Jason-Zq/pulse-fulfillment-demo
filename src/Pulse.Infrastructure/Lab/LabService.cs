@@ -28,12 +28,6 @@ public sealed class LabService
         "stop_consumer", "start_consumer", "stop_publisher", "start_publisher"
     };
 
-    private static readonly (string Sku, string Name, decimal Price, int Available)[] DemoSkus =
-    [
-        ("SKU-1", "演示商品 A", 99.5m, 100),
-        ("SKU-2", "演示商品 B", 199m, 50)
-    ];
-
     private readonly PulseDbContext _db;
     private readonly ILabControlStore _controls;
     private readonly IMessagePublisher _publisher;
@@ -130,7 +124,8 @@ public sealed class LabService
 
     /// <summary>
     /// 清空业务表（Orders / OrderItems / InventoryLedgers / OutboxMessages /
-    /// ProcessedEvents / DeadLetters / Inventory）并重新播种 2 个 SKU；
+    /// ProcessedEvents / DeadLetters / Inventory）并按 DemoCatalog 重新播种全部演示 SKU
+    /// （含 Category，与 API 启动种子同源）；
     /// 保留 daily_reports / experiment_results / alerts / lab_controls。
     /// </summary>
     public async Task<ResetResult> ResetAsync(CancellationToken cancellationToken = default)
@@ -144,31 +139,36 @@ public sealed class LabService
         _db.Inventories.RemoveRange(await _db.Inventories.ToListAsync(cancellationToken));
         await _db.SaveChangesAsync(cancellationToken);
 
-        foreach (var (sku, name, price, available) in DemoSkus)
+        foreach (var seed in DemoCatalog.Products)
         {
             var product = await _db.Products
-                .FirstOrDefaultAsync(p => p.Sku == sku, cancellationToken);
+                .FirstOrDefaultAsync(p => p.Sku == seed.Sku, cancellationToken);
             if (product is null)
             {
                 _db.Products.Add(new Product
                 {
-                    Sku = sku, Name = name, Price = price, IsActive = true
+                    Sku = seed.Sku,
+                    Name = seed.Name,
+                    Price = seed.Price,
+                    Category = seed.Category,
+                    IsActive = true,
                 });
             }
             else
             {
-                product.Name = name;
-                product.Price = price;
+                product.Name = seed.Name;
+                product.Price = seed.Price;
+                product.Category = seed.Category;
                 product.IsActive = true;
             }
 
             _db.Inventories.Add(new Inventory
             {
-                Sku = sku, Available = available, Reserved = 0, Version = 0
+                Sku = seed.Sku, Available = seed.Available, Reserved = 0, Version = 0
             });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return new ResetResult("ok", DemoSkus.Length, DateTime.UtcNow);
+        return new ResetResult("ok", DemoCatalog.Products.Count, DateTime.UtcNow);
     }
 }

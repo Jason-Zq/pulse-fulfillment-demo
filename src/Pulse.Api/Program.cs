@@ -102,14 +102,23 @@ using (var scope = app.Services.CreateScope())
         DemoDatabaseInitializer.EnsureSchema(db);
     }
 
+    // 单一数据源：与 /api/lab/reset 共用 DemoCatalog，避免商城分类与 SKU 数量漂移。
     if (!await db.Products.AnyAsync())
     {
-        db.Products.AddRange(
-            new Product { Sku = "SKU-1", Name = "演示商品 A", Price = 99.5m },
-            new Product { Sku = "SKU-2", Name = "演示商品 B", Price = 199m });
-        db.Inventories.AddRange(
-            new Inventory { Sku = "SKU-1", Available = 100, Reserved = 0, Version = 0 },
-            new Inventory { Sku = "SKU-2", Available = 50, Reserved = 0, Version = 0 });
+        db.Products.AddRange(DemoCatalog.Products.Select(s => new Product
+        {
+            Sku = s.Sku,
+            Name = s.Name,
+            Price = s.Price,
+            Category = s.Category,
+        }));
+        db.Inventories.AddRange(DemoCatalog.Products.Select(s => new Inventory
+        {
+            Sku = s.Sku,
+            Available = s.Available,
+            Reserved = 0,
+            Version = 0,
+        }));
         await db.SaveChangesAsync();
     }
 }
@@ -147,7 +156,7 @@ app.MapGet("/api/products", async (PulseDbContext db, CancellationToken ct) =>
         .Join(db.Inventories.AsNoTracking(),
             p => p.Sku,
             i => i.Sku,
-            (p, i) => new { p.Id, p.Sku, p.Name, p.Price, p.IsActive, i.Available, i.Reserved, i.Version })
+            (p, i) => new { p.Id, p.Sku, p.Name, p.Price, p.IsActive, p.Category, i.Available, i.Reserved, i.Version })
         .ToListAsync(ct);
 
     var items = rows.Select(r => new
@@ -160,6 +169,8 @@ app.MapGet("/api/products", async (PulseDbContext db, CancellationToken ct) =>
         r.Reserved,
         deducted = deductedBySku.GetValueOrDefault(r.Sku),
         status = r.IsActive ? "active" : "inactive",
+        // M7 商城分类：外显后端 Product.Category，供前端分类导航与筛选。
+        category = r.Category,
         // M6b v0.2：乐观锁版本号外显，供商品详情 / 后台库存页展示。
         version = r.Version
     }).ToList();

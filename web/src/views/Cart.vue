@@ -11,7 +11,25 @@
 
     <template v-else>
       <div class="shop-panel cart-list">
+        <div class="cart-list__head">
+          <ElCheckbox
+            :model-value="cart.allSelected"
+            :indeterminate="cart.hasSelection && !cart.allSelected"
+            @change="cart.toggleAll()"
+          >全选</ElCheckbox>
+          <span class="shop-note">已选 {{ cart.selectedLines.length }} / {{ cart.lines.length }} 种商品</span>
+          <div class="shop-spacer"></div>
+          <ElButton size="small" text type="danger" :disabled="!cart.hasSelection" @click="clearSelected">
+            删除已选
+          </ElButton>
+        </div>
+
         <div v-for="line in cart.lines" :key="line.sku" class="cart-line">
+          <ElCheckbox
+            class="cart-line__check"
+            :model-value="cart.isSelected(line.sku)"
+            @change="cart.toggleSelect(line.sku)"
+          />
           <div class="cart-line__thumb"><ProductThumb :sku="line.sku" :name="line.name" /></div>
           <div class="cart-line__body">
             <div class="cart-line__name">{{ line.name }}</div>
@@ -30,12 +48,22 @@
 
       <div class="shop-panel cart-summary">
         <div class="shop-note">
-          共 {{ cart.lines.length }} 种商品 / {{ cart.totalCount }} 件。结算时会把全部明细一次写入同一个 MySQL 事务：
-          多行 order_items、多行库存预扣与 Reserve 流水、一行 outbox。
+          共 {{ cart.lines.length }} 种商品 / {{ cart.totalCount }} 件（全额 ¥ {{ cart.totalAmount.toFixed(2) }}）。
+          结算时只把已勾选的明细一次写入同一个 MySQL 事务：多行 order_items、多行库存预扣与 Reserve 流水、一行 outbox。
         </div>
         <div class="shop-summary">
-          <span class="shop-total">合计 <strong>¥ {{ cart.totalAmount.toFixed(2) }}</strong></span>
-          <ElButton type="primary" size="large" @click="router.push('/checkout')">去结算</ElButton>
+          <span class="shop-total">
+            已选 {{ cart.selectedTotalCount }} 件 · 合计 <strong>¥ {{ cart.selectedTotalAmount.toFixed(2) }}</strong>
+          </span>
+          <ElButton
+            type="primary"
+            size="large"
+            :disabled="cart.selectedLines.length === 0"
+            @click="router.push('/checkout')"
+          >去结算</ElButton>
+        </div>
+        <div v-if="cart.selectedLines.length === 0" class="shop-note" style="margin-top: 8px">
+          未勾选任何商品，请先勾选后再结算。
         </div>
       </div>
     </template>
@@ -44,21 +72,33 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ElButton, ElEmpty } from 'element-plus'
+import { ElButton, ElCheckbox, ElEmpty, ElMessage } from 'element-plus'
 import { useCartStore } from '../stores/cart'
 import ProductThumb from '../components/ProductThumb.vue'
 
 const router = useRouter()
 const cart = useCartStore()
+
+function clearSelected(): void {
+  const count = cart.selectedLines.length
+  if (count === 0) return
+  for (const line of [...cart.selectedLines]) cart.remove(line.sku)
+  ElMessage.success(`已移除 ${count} 种商品`)
+}
 </script>
 
 <style scoped>
 .cart-list { padding: 4px 22px; }
+.cart-list__head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--shop-line);
+}
 .cart-line {
   display: flex; align-items: center; gap: 18px;
   padding: 14px 0; border-bottom: 1px solid var(--shop-line);
 }
 .cart-line:last-child { border-bottom: none; }
+.cart-line__check { flex: none; margin-right: 0; }
 .cart-line__thumb { width: 108px; flex: none; border-radius: 10px; overflow: hidden; }
 .cart-line__body { flex: 1; min-width: 0; }
 .cart-line__name { font-size: 15px; font-weight: 600; color: var(--shop-ink); }
@@ -67,7 +107,7 @@ const cart = useCartStore()
 .cart-line__subtotal { min-width: 96px; text-align: right; font-size: 15px; font-weight: 650; color: var(--shop-accent); }
 .cart-summary { margin-top: 16px; }
 @media (max-width: 700px) {
-  .cart-line { flex-wrap: wrap; }
+  .cart-line { flex-wrap: wrap; gap: 10px; }
   .cart-line__thumb { width: 80px; }
   .cart-line__subtotal { min-width: 0; }
 }

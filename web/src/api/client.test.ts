@@ -67,7 +67,7 @@ describe('request — 统一错误处理', () => {
 describe('api — 各端点方法', () => {
   it('listProducts → GET /api/products', async () => {
     const products: Product[] = [
-      { id: 1, sku: 'S1', name: '演示商品', price: 10, available: 5, reserved: 1, deducted: 0, status: 'OnSale' },
+      { id: 1, sku: 'S1', name: '演示商品', price: 10, available: 5, reserved: 1, deducted: 0, status: 'OnSale', category: '数码电器' },
     ]
     fetchMock.mockResolvedValue(makeResponse(products))
     const data = await api.listProducts()

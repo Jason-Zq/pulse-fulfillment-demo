@@ -172,7 +172,7 @@ M1 不引入 RabbitMQ 客户端、不引入 Redis 客户端、不写履约消费
 - 任务 1.1–1.8 完成。**本机实测**：`dotnet build` 0 warning / 0 error；`dotnet test` **10 passed**（Domain 3 + Infrastructure 4 + Api 3）；`npm run build` 沿用 M0 结果仍通过。
 - RED 证据 1：实现前 `CS0234` 找不到 `Pulse.Infrastructure.Orders`（退出码 1）；GREEN：4 个下单集成测试全绿。
 - 产出：`src/Pulse.Infrastructure`（6 个实体、`PulseDbContext`、`PulseDbContextFactory`、`PlaceOrderService`）、`Migrations/20261106144831_InitialCreate.cs` 等 3 个迁移文件、`tests/Pulse.Infrastructure.Tests`、`tests/Pulse.Api.Tests/PlaceOrderEndpointTests.cs`、API 三个端点、compose 增加 `Database__Provider=MySql`。
-- 本地默认 SQLite（`pulse-demo.db`，启动自动建表 + 播种 2 个 SKU），compose 覆盖为 MySQL 并走 `Migrate()`；`.tools/dotnet-ef` 为本地工具路径，未污染全局。
+- 本地默认 SQLite（`pulse-demo.db`，启动自动建表 + 播种 2 个 SKU），compose 覆盖为 MySQL 并走 `Migrate()`；`.tools/dotnet-ef` 为本地工具路径，未污染全局。**（M0 时点记录；M8 起种子改为 `DemoCatalog` 的 8 个 SKU / 5 个分类，见文末 M8 执行记录）**
 - **计划偏移（已记录）**：① 任务 1.7 原定手工 `curl` 验证，改为 `WebApplicationFactory` 自动化端点测试，更可重复；因共享本地 SQLite 库，`Pulse.Api.Tests` 加了 `CollectionBehavior(DisableTestParallelization = true)` 避免文件锁竞争。② 第 4 个并发测试改为「陈旧 version 更新触发 `DbUpdateConcurrencyException`」，比 SQLite 写锁竞争更稳定可重现。③ **纪律偏差**：API 薄适配层是「先实现后补集成测试」，未走严格 RED-GREEN；核心业务逻辑（Infrastructure 层）严格走了 TDD，**M2 起所有层恢复严格红绿**。
 - **未验证**：MySQL 迁移应用到真实库、Redis、RabbitMQ、`docker compose up`（本机无 Docker）。
 - M2 开始前需先把 M2 拆成 2–5 分钟粒度任务（outbox publisher + publisher confirms、RabbitMQ 拓扑、Redis 幂等短钥匙、Testcontainers 或本地服务验证策略）。
@@ -586,7 +586,7 @@ M1 不引入 RabbitMQ 客户端、不引入 Redis 客户端、不写履约消费
   - **E2 消费幂等**：造 1 单并支付 → 用**同一个 event_id** 直投 1000 条 `order.paid`（`IMessagePublisher`）→ 等待消费 → 校验该订单 `Deduct` 流水条数 = 1 且 `processed_events` 中该 event_id 仅 1 行。
   - **E3 并发不超卖**：同一 SKU 并发抢 100 单（`concurrency=10`）→ 校验 `available >= 0`、超卖率 0、`reserved + deducted` 与流水一致，记录吞吐 / P99。
   - 三者都把 `params` / `result`（JSON 字符串）、`passed` 落 `experiment_results`；`passed=false` 也要如实落行，不许吞异常。
-- **5.7 实验台服务与 API 端点**：`LabService`（traffic / inject / reset，reset 清空业务表并重新播种 2 个 SKU，保留控制与实验结果表）；按上表在 `Program.cs` 加 9 个端点；`POST /api/experiments/run` 同步执行并返回结果行（实验本身有超时上限，避免请求挂死）。
+- **5.7 实验台服务与 API 端点**：`LabService`（traffic / inject / reset，reset 清空业务表并重新播种 2 个 SKU，保留控制与实验结果表；**M8 起改为按 `DemoCatalog` 播种 8 个 SKU / 5 个分类**）；按上表在 `Program.cs` 加 9 个端点；`POST /api/experiments/run` 同步执行并返回结果行（实验本身有超时上限，避免请求挂死）。
 - **5.8 后端测试**：`tests/Pulse.Infrastructure.Tests/M5/`（日报 upsert 幂等、控制开关读写、告警去重与静默、流量生成器吞吐 / P99、E1/E2/E3 判据纯逻辑、dashboard 聚合）与 `tests/Pulse.Api.Tests/M5*.cs`（9 个端点 RED 404/断言失败 → GREEN）。**所有 RED 先跑并留失败证据**。
 
 ### 前端任务 5.9–5.11（严格 RED-GREEN）
@@ -687,13 +687,13 @@ M1 不引入 RabbitMQ 客户端、不引入 Redis 客户端、不写履约消费
 | 端点 | 变更 | 契约 |
 |---|---|---|
 | `POST /api/orders` | 向后兼容扩展 | 保留 `{ sku: string, quantity: number, idempotencyKey: string }`；新增可选 `items?: [{ sku: string, quantity: number }]`。**`items` 与 `sku`/`quantity` 互斥**：同传 → 400 `{ error }`；`items` 空数组 / 未知 SKU / `quantity<=0` → 400。同一事务写多行 `order_items` + 多行 `Reserve` 流水 + 多行库存预扣 + 一行 `outbox`。响应 `{ id, orderNo, status, message }` **不变** |
-| `GET /api/products` | 只加字段 | M4 已有 `{ id, sku, name, price, available, reserved, deducted, status }`，v0.2 **只新增 `version: number`**，其余字段与类型原样保留 |
+| `GET /api/products` | 只加字段（M6b → M8） | M4 已有 `{ id, sku, name, price, available, reserved, deducted, status }`；v0.2 新增 `version: number`；**M8 再新增 `category: string`**（后端 `Product.Category`，5 个分类常量见 `web/src/utils/categories.ts`）。当前真响应 **10 字段**，其余字段与类型原样保留 |
 | `GET /api/orders` | 只加筛选 | 新增可选 `orderNo?: string`（模糊匹配）；响应 `{ items, total, page, pageSize }` 形状不变 |
 | `GET /api/orders/{id}` | 可选子对象 | 现有字段不变；`evidence?: { outboxEventId, outboxStatus, processedEvent, ledgerCount, deadLetterCount }`，**若 M6b 成本高则留到 M6c，前端缺字段时隐藏链路卡，不伪造 0** |
 | 首页 hero 证据数字 | 无新端点 | 从 `GET /api/experiments` 取 E1/E2/E3 最新结果解析；无结果显示「暂无实测数据」，**绝不预填示例数字** |
 | `GET /api/pipeline` | **M6c 6.10 新增**（先补契约再实现） | `{ generatedAtUtc: string, nodes: PipelineNode[] }`；`PipelineNode = { key, label, middleware, count, unit, source, available, link }`。7 个节点：下单事务 / outbox 待投递 / ex.orders→q.fulfillment / 消费判重 / 库存实扣 / 死信待补偿 / 日报落表。**每个 count 必须是真实查询**（Orders / OutboxMessages / QueueDeclarePassive / ProcessedEvents / InventoryLedgers / DeadLetters / DailyReportRecords）；队列不可用时该节点 `available=false` 且 `count=-1`，前端显示「—」不伪造 0 |
 
-前端类型落 `web/src/api/types.ts`：`PlaceOrderRequest.items?`、`Product.version`、`OrderQuery.orderNo?`、`OrderDetail.evidence?`。任何一方要改字段名必须先回报主会话。
+前端类型落 `web/src/api/types.ts`：`PlaceOrderRequest.items?`、`Product.version?`（M6b 起可选兼容）、**`Product.category: string`（M8 起必填）**、`OrderQuery.orderNo?`、`OrderDetail.evidence?`。任何一方要改字段名必须先回报主会话。M8 后端真实响应为 10 字段（含 `version` + `category`），前端 `version` 保持可选以兼容 M4/M5 响应，不因此放宽契约核对。
 
 ### M6a 规格与信息架构（任务 6.1–6.3）
 
@@ -938,3 +938,39 @@ M7 = 给别人看的交付通道（诚实交付口径）：生产加固配置 + 
 5. **M7 诚实交付边界**：真实公网域名 TLS（ACME）需用户自备域名/服务器/ICP，本机仅做 `compose config` 语法校验，未跑真实证书签发；其余（端口收口、Swagger 关闭、口令链路）均为真容器实测。
 
 **未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。已提交 @ `0da4d13`（分支 `feat/m0-skeleton`）。
+
+---
+
+### M8 任务再拆解（2–5 分钟粒度，2026-11-07；状态：**已完成**）
+
+M8 = 用户端从「技术演示页」升级为「真正商城」。**用户三项决策**：① 模板策略＝以 `vue-rabbit` 为视觉 / 信息架构蓝图重接（只取 `LayoutHeader`、分类导航、搜索、购物车角标、`HomeCategory`、轮播、商品卡、详情画廊、购物车勾选、结算/支付信息架构）；② 商品分类＝**后端 `Product` 加 `category` 列**，不建新表；③ 技术叙事＝**消费优先 · 技术为暗线**（MySQL/Redis/RabbitMQ 与实测证据降级为可折叠「技术溯源」）。Login/Member 用户明确「保留」，处置为**明确标注「演示」的静态壳**。
+
+**M8 边界**：不引入 `vue-rabbit` 的 `apis/*` / axios / JWT / 登录业务逻辑；不接真实支付、真实物流、真实用户系统；不加新中间件 / 新 UI 库 / 新表；结算页演示项（地址、优惠券、运费、配送时间、支付方式）**只作 UI 展示，不进 `POST /api/orders` 请求体**；零外部图片资源，商品图与分类图标全部内联 SVG。`GET /api/products` 只增加 `category: string` 一个字段（9 → 10），不改泳道 / 订单 / 实验等任何既有契约。
+
+| 子任务 | 内容 | 判据 |
+|---|---|---|
+| 8.1 审计蓝图 | 读 `vue-rabbit` 视图层，提取可复用的信息架构清单 | 只列视觉/IA，明确排除数据层 |
+| 8.2 后端 category | `Product.Category` + `HasMaxLength(32)` + EF 迁移 + `GET /api/products` 外显；后端契约测试先红后绿 | 第 4 条 MySQL 迁移可从零应用；`dotnet test` 不退化 |
+| 8.3 ShopLayout | 全局搜索（`?q=`）+ 5 分类导航（`?category=`）+ 购物车角标 + 会员入口 + 常驻演示声明 | 静态契约测试更新（旧 `shopNav`/`ElMenu` 断言作废） |
+| 8.4 技术叙事降级 | 首页 / 详情页技术 hero 与证据卡收进 `ElCollapse`「技术溯源」 | 首屏不再出现三中间件卡 |
+| 8.5 商城首页 | 3 张轮播 + 5 分类 SVG 入口 + 猜你喜欢 + 全部商品网格 + 排序 | `filterProducts` 纯函数 10 个 Vitest；`route.query` 驱动 |
+| 8.6 商品展示 | `CategoryIcon.vue` / `ProductGallery.vue` 4 视角 / 面包屑 / 同类推荐 / `ProductThumb` 名称首两字 | 零外部资源；SKU 变化复位画廊 |
+| 8.7 购物车结算 | cart store 加 `selected` / `toggleSelect` / `toggleAll` / `selectedItems()`；结算只提交已勾选；演示项隔离 | 7 个 cart store 新测试；`buildPlaceOrder(cart.selectedItems())` |
+| 8.8 购买闭环 | `OrderDetail` 4 步状态条 + 待支付引导 + 「模拟发货 · 演示」；`Orders` 加「去支付」 | 复用既有 `api.shipOrder`，不新增端点 |
+| 8.9 会员静态壳 | `/member` + `/login` 重定向，文案明确无真实用户系统 | 源码不含 `api.` / `Bearer ` / `ElForm` / `localStorage.setItem` |
+| 8.10 质量门 | 前后端单测 + `vue-tsc` + `vite build` + 真实 chromium 全链路走查 + 真容器全量验收 | 四条回归不退化 + `m7-shop.mjs` 40/40 + 验收脚本全绿 |
+
+### M8 执行记录（2026-11-07，用户「继续 / 请继续完成未完成的任务」后完成）
+
+| 项 | 结果 |
+|---|---|
+| 真实缺陷修复 | **种子漂移**：`Program.cs` 启动播种 8 SKU 带分类，`LabService.ResetAsync` 却内置 2 个无分类 SKU，浏览器点「一键重置」会把商城打回旧状态。新建 `src/Pulse.Infrastructure/Persistence/DemoCatalog.cs` 作为**单一数据源**，两处共用；`M5EndpointsTests` 加 `productsSeeded == DemoCatalog.Products.Count`、5 分类、无空分类断言。真容器重建后 `POST /api/lab/reset` 返回 `productsSeeded: 8` |
+| 后端 | `211 passed`（Domain 3 / Infrastructure 159 / Api 49）未退化；新增迁移 `20261107142110_AddProductCategory`，干净 MySQL 从零应用成功 |
+| 前端 | `npm test` **196 passed / 28 文件**（原 167）；`vue-tsc --noEmit` **0 error**；`vite build` **0 error**，最大 chunk **218.82 kB**（< 500 kB）。注：本机沙箱 `vite build` 预清空 `web/dist/assets` 会触发批量删除守卫，改用 `--outDir /tmp/pulse-m7-dist --emptyOutDir` 绕开，属环境守卫非代码问题 |
+| 浏览器实测 | `tests/e2e/m7-shop.mjs` 真实 chromium 指向 `vite dev`(5173) / `/api` 代理真容器，**40/40 PASS**；`docs/screenshots/m7/` 8 张证据截图 |
+| 验收脚本同步 | `scripts/verify_docker_e2e.py` 的「2 个商品 / 9 字段」断言更新为「8 个商品 / 10 字段（含 `category`）」，新增 `productsSeeded == 8`、5 分类齐全、无空分类、reset 后接口仍 8 SKU 等校验；`down -v && up -d --build` 干净重建后全量跑 **180 / 180 PASS**（M6c 175 条基线一条未退化 + M8 新增 5 条），第 4 条迁移从零应用真验通过，验收后 `/api/lab/reset` 恢复干净演示数据 |
+| 收尾纪律 | README / PLAN / BOUNDARIES 同步；旧 `a11-click.mjs` 的首屏三中间件断言不再适用新首页，明确不作为 M8 验证依据；**未经用户确认不 commit**，M8 全部改动留在工作区 |
+
+**环境坑（如实记录）**：① 加列后旧本地 SQLite 演示库不会自动加列，需删除 `pulse-demo.db` 重建；② 迁移只加列不补种子，旧 MySQL 卷需 `POST /api/lab/reset` 或 `down -v` 重建；③ 沙箱前台重型命令易被 SIGTERM，测试/构建改后台执行；④ Element Plus `ElCollapse` 默认仍渲染折叠内容到 DOM，浏览器走查改判 `is-active` 类而非文本存在。
+
+**未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。M8 全部改动**未提交**。
