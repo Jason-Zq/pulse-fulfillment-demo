@@ -973,4 +973,47 @@ M8 = 用户端从「技术演示页」升级为「真正商城」。**用户三�
 
 **环境坑（如实记录）**：① 加列后旧本地 SQLite 演示库不会自动加列，需删除 `pulse-demo.db` 重建；② 迁移只加列不补种子，旧 MySQL 卷需 `POST /api/lab/reset` 或 `down -v` 重建；③ 沙箱前台重型命令易被 SIGTERM，测试/构建改后台执行；④ Element Plus `ElCollapse` 默认仍渲染折叠内容到 DOM，浏览器走查改判 `is-active` 类而非文本存在。
 
-**未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。M8 全部改动**未提交**。
+**未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。M8 全部改动已于 **2026-11-08 提交 @ `4ac4728`**（用户授权自动提交）。
+
+---
+
+### M9 任务再拆解（2–5 分钟粒度，2026-11-08；状态：**已完成**）
+
+M9 = 作品集演示导览。**要解决的问题**：M8 定调「消费优先 · 技术为暗线」后，首页把三中间件与实测证据折进 `ElCollapse`，访客（面试官）打开演示站只看得见商城；`/about` 虽有静态介绍，却缺少「按步骤可复现」的操作路径与**实时**链路计数。作品集第一标准「可演示、可被追问、有量化证据」因此被削弱。
+
+**M9 边界（硬约束）**：
+
+- 不新增后端端点 / 表 / 中间件 / UI 库；只复用 `GET /api/pipeline`、`GET /api/experiments` 与既有 `utils/pipeline.ts`、`utils/evidence.ts`、`api/client.ts`。
+- 不改任何既有契约形状；不接真实支付 / 用户系统；不引入外部图片或 CDN 资源。
+- **数字诚实**：7 节点计数一律来自 `GET /api/pipeline` 的真实 `count` / `available`；`available=false` 或 `count<0` 显示「—」，不伪造 0；E1/E2/E3 只展示 `parseLatestEvidence` 解析出的真实结果，无数据显示「暂无实测数据」；页面与文档不写死任何 RPS / P99 / 成功数。
+- 与 `/about` 分工：`/about` = 静态介绍与边界说明；`/tour` = 按步骤可复现的操作手册 + 实时证据 + 常见追问。
+
+| 子任务 | 内容 | 判据 |
+|---|---|---|
+| 9.1 RED 静态契约 | `web/src/views/m9Tour.test.ts` 先红：断言 `/tour` 路由、Tour.vue 必含 token、顶栏与首页入口、不含写死数字与 axios | 首次运行 FAIL（页面/路由不存在），留失败证据 |
+| 9.2 GREEN 页面 | `web/src/views/Tour.vue`：演示声明、7 节点实时计数卡（复用 `orderedPipelineNodes` + `pipelineCountText`）、每步真实键表名与「去哪看」、可复制 curl 复现序列、E1/E2/E3 证据卡、8 条追问 Q&A（`ElCollapse`） | 静态契约测试全绿；`vue-tsc` 0 error |
+| 9.3 入口接线 | `routes.ts` 加 `/tour`（lazy）；`ShopLayout` 顶栏加「技术演示」；首页技术溯源折叠块加「打开 3 分钟演示导览」链接 | 顶栏与折叠块都能到达 `/tour`，商城首屏不被技术内容挤占 |
+| 9.4 质量门 | `npm test` / `vue-tsc` / `vite build`（临时 outDir）/ `dotnet test` + 真实 chromium 走查 `/tour` | 四条回归不退化 + 浏览器走查全 PASS |
+| 9.5 收尾 | README / PLAN / BOUNDARIES / memory 同步；**自动 commit**（用户 2026-11-08 已授权），不 push | 工作树干净 |
+
+**追问 Q&A 覆盖**（页面内折叠，答案指向真实证据）：为什么事务性 Outbox / 为什么 TTL+DLX 而非延迟插件 / 为什么 Redis 与唯一索引双保险 / 为什么 3 秒轮询而非 WebSocket / 订单状态为什么按 API 语义值而非裸整数 / E3 高并发失败率归因 / 队列不可用为什么显示「—」/ .NET 8 已 EOL 为何仍用于演示。
+
+### M9 执行记录（2026-11-08，用户「继续往下开发」后完成）
+
+| 子任务 | 结果 |
+|---|---|
+| 9.1 RED | 先写 `web/src/views/m9Tour.test.ts` 静态契约（路由 / 页面 token / 入口 / 数字诚实 / Q&A）；首次运行报 `ENOENT: no such file or directory, open './Tour.vue'`，**1 failed / no tests / RED_EXIT=1**，留失败证据后再实现 |
+| 9.2 GREEN | 新建 `web/src/views/Tour.vue`：7 步链路卡（复用 `orderedPipelineNodes` + `pipelineCountText`）、每步真实键表名与后台核对链接、5 条可复制 curl 复现命令、E1/E2/E3 真实证据卡、8 条追问 Q&A（`ElCollapse`）；计数全部来自 `GET /api/pipeline` / `GET /api/experiments`，不可用显示「—」，无数据显示「暂无实测数据」 |
+| 9.3 入口 | `routes.ts` 加 lazy `/tour`；`ShopLayout` 顶栏加高亮「技术演示」按钮（响应式不隐藏）；首页技术溯源折叠块加「打开 3 分钟演示导览」链接。商城首屏没有被技术内容挤占 |
+| 9.4 质量门 | 前端 **201 passed / 29 文件**、`vue-tsc` **0 error**、`vite build` **0 error**（最大 chunk **219.15 kB**）；后端 `dotnet test` **211 passed** 未退化；`tests/e2e/m9-tour.mjs` 真实 chromium **17/17 PASS**（含 7 节点计数与 `/api/pipeline` 逐一比对、0 console error）；真容器 `180 / 180 PASS` 不变（本里程碑未改后端与验收脚本） |
+| 9.5 收尾 | README / PLAN / BOUNDARIES / memory 同步；按用户 2026-11-08「以后可以自动提交」授权自动 commit，**不 push** |
+
+**实施细节与纪律记录（如实）**：
+
+1. **GREEN 首跑仍 1 条 FAIL**：静态契约把 Q&A 科普文案里出现的 `SignalR` 名词误判成「引入长连接依赖」。把断言从「禁止出现该词」收紧为「禁止 `@microsoft/signalr` / `new HubConnection` 的真实引入」，`axios` / `localStorage` 同样改为检查真实调用；**没有放宽「不引入新依赖」的边界**，重跑 5/5 PASS。
+2. **与 `/about` 分工**：`/about` 已有静态介绍 / 三中间件 / 边界说明，M9 不重复造介绍页，只做「按步骤可复现 + 实时计数 + 常见追问」；两页互相链接。
+3. **零新增契约**：不新增后端端点 / 表 / 中间件 / UI 库；curl 命令只指向既有端点；`GET /api/pipeline` 的 `available=false` 与 `count=-1` 一律显示「—」。
+4. **数字诚实**：页面与文档不写死任何 RPS / P99 / 实验成功数；Q&A 讲 E3 失败归因时刻意不写具体单量，只指向 `experiment_results` 的最新真实值。浏览器走查直接从 API 取快照逐节点比对，不在脚本里写死期望值。
+5. **本轮未跑** `scripts/verify_docker_e2e.py`（后端与脚本零改动，上一里程碑 180/180 仍适用）；未改任何容器配置；导览页只发 GET，不写演示订单，验收后 `/api/lab/reset` 仍为 0 订单 / 8 SKU / 5 分类。
+
+**未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。

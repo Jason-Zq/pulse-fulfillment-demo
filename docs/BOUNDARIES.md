@@ -65,11 +65,12 @@
 | 实验台控制面（M5） | 开关落 `lab_controls` 表（跨 API / Worker 两个进程读写） | Redis 开关标志 | 本地 SQLite 演示模式没有 Redis；DB 开关在 SQLite 与 MySQL 行为一致，Redis 保留给 SPEC 指定的 `alert:silence:{key}` / 告警去重 |
 | 仪表盘队列深度（M5） | RabbitMQ.Client `QueueDeclarePassive(queue).MessageCount` | RabbitMQ management HTTP API | 避免 guest 远程登录限制与额外凭据配置；不可用时如实返回 `available:false`，不伪造 0 |
 | 多明细事实源（M6b） | 履约 / 超时关单按 `order_items` 逐行扣减 / 释放 | 只按 MQ payload 的首行 `sku/quantity` | payload 仍带首行字段与 `items[]` 仅为兼容 M1/M3 单消息语义；只按首行处理会漏扣 / 漏放其余 SKU，造成库存泄漏。`order.Items.Count == 0` 时回退 payload，保证探针 / 历史消息语义不变 |
-| 商城视觉（M6b → M8） | 自写 CSS + 内联 SVG 占位图 + `ShopLayout` 顶部导航；M8 以 `vue-rabbit` 为视觉 / 信息架构蓝图重接（不引入其数据层） | 新 UI 库 / 商品图 CDN / SSR / vue-rabbit 的 axios 与鉴权逻辑 | 范围约束「不引入新 UI 库、零外部资源」；Element Plus 继续负责后台与表格 / 表单控件。主 chunk 演进：M6a 171.27 kB → M6c 255.21 kB → **M8 218.82 kB**（技术 hero 降级为折叠、页面 code-split），仍 < 500 kB 且无构建告警 |
+| 商城视觉（M6b → M8） | 自写 CSS + 内联 SVG 占位图 + `ShopLayout` 顶部导航；M8 以 `vue-rabbit` 为视觉 / 信息架构蓝图重接（不引入其数据层） | 新 UI 库 / 商品图 CDN / SSR / vue-rabbit 的 axios 与鉴权逻辑 | 范围约束「不引入新 UI 库、零外部资源」；Element Plus 继续负责后台与表格 / 表单控件。主 chunk 演进：M6a 171.27 kB → M6c 255.21 kB → M8 218.82 kB → **M9 219.15 kB**（技术 hero 降级为折叠、页面 code-split；`/tour` 路由级懒加载），仍 < 500 kB 且无构建告警 |
 | 泳道数据源（M6c） | `GET /api/pipeline` 聚合端点，7 节点各自查真实表 / `QueueDeclarePassive`，前端只读该端点 | 前端分别调 7 个接口拼装 / 在页面里写死示意数字 | 「界面本身就是技术叙事」要求数字真实可追问；单点聚合让 8 个后台页与首页共用同一份事实源，队列不可用时 `count=-1 + available=false`，前端显示「—」不伪造 0。验收脚本逐项把 6 个节点计数与 MySQL 真实行数、1 个节点与 RabbitMQ 管理台深度比对 |
 | Swagger 暴露（M6c / M7 已验关闭） | 容器 Production 下默认启用，用 `Swagger__Enabled=false` 可关；nginx 加 `/swagger/` 反代 | 只在 `Development` 开放 / 改 `docker-compose.yml` 加环境变量 | 演示站需要「给别人看的接口浏览入口」，但公网部署应显式关闭。M7 已用生产覆盖干净重建注入 `Swagger__Enabled=false` 真验：nginx 8080 与 api 直连的 `/swagger/v1/swagger.json`、`/swagger/index.html` 均返回 **404**（不再是 SPA 回退 200），证明 Swagger 公开面已关闭；默认开放双向实测通过 |
+| 演示导览（M9） | 独立 `/tour` 页：7 节点实时计数 + 可复制复现命令 + 8 条追问 Q&A，与 `/about` 静态介绍分工；顶栏高亮入口 + 首页技术溯源折叠块入口 | 新后端端点 / 新表 / 新 UI 库 / 写死实验数字 / 重复 `/about` 的静态介绍 | M8 把技术叙事折成暗线后，访客找不到中间件入口。导览页只复用 `GET /api/pipeline` 与 `GET /api/experiments`，`available=false` 显示「—」不伪造 0；商城首屏仍保持「消费优先」，导览是独立入口而非首屏技术墙 |
 
-## 7. 验证状态（如实记录，2026-11-07 M8 商城前端成熟化收尾）
+## 7. 验证状态（如实记录，2026-11-08 M9 作品集演示导览收尾）
 
 ### 7.1 已实测通过
 
@@ -77,7 +78,7 @@
 
 - `dotnet build src/Pulse.sln`：**0 warning / 0 error**。
 - `dotnet test src/Pulse.sln`：**211 passed**（Domain 3 + Infrastructure 159 + Api 49），M6b 基线 207 → M6c 新增 4（`PipelineService` 服务层 + `/api/pipeline` 端点集成测试）。M0–M6c 每轮 RED→GREEN 均保留编译失败 / 断言失败证据；M1 API 薄适配层「先实现后补测」、M5 `persisted` 字段未单独先红两处纪律偏差已记录在 `docs/PLAN.md`。
-- `npm test`：**196 passed / 28 个 Vitest 文件**（M6c 167 → M8 新增 `productFilter.test.ts`、`m7Shop.test.ts` 静态契约、cart 勾选态等）；`vue-tsc --noEmit` 严格模式 **0 error** + Vite 构建 **0 error**，最大 chunk **218.82 kB**，仍 < 500 kB（M8 用 `--outDir /tmp/... --emptyOutDir` 绕开本机沙箱批量删除守卫，属环境限制非代码回归；增量原因见第 6 节）。
+- `npm test`：**201 passed / 29 个 Vitest 文件**（M6c 167 → M8 196 → M9 新增 `m9Tour.test.ts` 5 条静态契约）；`vue-tsc --noEmit` 严格模式 **0 error** + Vite 构建 **0 error**，最大 chunk **219.15 kB**，仍 < 500 kB（`vite build` 用 `--outDir /tmp/... --emptyOutDir` 绕开本机沙箱批量删除守卫，属环境限制非代码回归；增量原因见第 6 节）。
 - **本地端到端契约联调**：M4 **33 / 33 PASS**；M5 **30 / 30 PASS**（主会话按 `web/src/api/types.ts` 逐字段核对真 API 响应，含 `id` number、`params`/`result` 为 JSON 字符串、默认开关 true/true/false、静默不存在的 key 返回 404 的契约边界）。另起 `vite dev`(5173) 验证 `/api` 代理。
 - **并行裂缝修复（记录在案）**：M4 两边测试全绿但主会话逐字段核对发现 5 处 DTO 不一致，链路实际跑不通；M5 因此**先锁死 DTO 契约表再派并行实现**，本地复核 30/30 无裂缝。印证「测试绿 ≠ 联调通」。
 
@@ -105,6 +106,8 @@
 
 - **M8 质量门（2026-11-07）**：`dotnet test` **211 passed** 未退化；`npm test` **196 passed / 28 文件**、`vue-tsc --noEmit` 0 error、`vite build` 0 error（最大 chunk **218.82 kB**）；`tests/e2e/m7-shop.mjs` 真实 chromium 全链路 **40/40 PASS**（截图 `docs/screenshots/m7/`）；`scripts/verify_docker_e2e.py --deep --m5 --experiments --m6 --m6c` 在 `down -v && up -d --build` 干净重建后 **180 / 180 PASS**（M6c 175 条基线一条未退化 + M8 新增 5 条商品/分类断言），真验第 4 条 `AddProductCategory` 迁移从零应用、`/api/products` 返回 8 个商品 / 10 字段 / 5 个分类、`POST /api/lab/reset` 返回 `productsSeeded=8` 且 reset 后商城仍是 8 SKU。验收后已 `POST /api/lab/reset` 恢复干净演示数据（0 订单 / 8 SKU / 5 分类）。
 - **M8 种子同源修复（真实缺陷）**：此前 `Program.cs` 启动播种 8 SKU 带分类、`LabService.ResetAsync` 却内置 2 个无分类 SKU，一键重置会把商城打回旧状态；改为共用 `src/Pulse.Infrastructure/Persistence/DemoCatalog.cs` 单一数据源，并由后端测试（`M5EndpointsTests`）与真容器验收脚本双重断言。修复前浏览器走查实测 `/api/lab/reset` 返回 `productsSeeded: 2`，修复后为 8。
+
+- **M9 质量门（2026-11-08）**：`npm test` **201 passed / 29 文件**、`vue-tsc --noEmit` **0 error**、`vite build` **0 error**（最大 chunk **219.15 kB**）；`dotnet test` **211 passed** 未退化；`tests/e2e/m9-tour.mjs` 真实 chromium **17/17 PASS**，其中把 `/tour` 的 7 个节点计数与 `GET /api/pipeline` 逐一比对，证明页面没有写死数字，且 0 console / page error。真容器 `verify_docker_e2e.py` **180 / 180 PASS** 不变（M9 未改后端与验收脚本）；导览页只发 GET，不写演示订单，验收后 `/api/lab/reset` 仍为 0 订单 / 8 SKU / 5 分类。
 
 ### 7.2 已知但非缺陷的说明
 

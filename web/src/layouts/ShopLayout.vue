@@ -21,6 +21,7 @@
           </ElInput>
         </form>
         <nav class="shop-topnav">
+          <RouterLink to="/tour" class="shop-topnav__tech">技术演示</RouterLink>
           <RouterLink to="/orders">我的订单</RouterLink>
           <RouterLink to="/member">会员中心</RouterLink>
           <RouterLink to="/admin/dashboard" class="shop-topnav__optional">运营后台</RouterLink>
@@ -321,6 +322,14 @@ function submitSearch(): void {
   color: var(--shop-muted); text-decoration: none; font-size: 13px; white-space: nowrap;
 }
 .shop-topnav a:hover { color: var(--shop-brand-deep); }
+.shop-topnav a.shop-topnav__tech {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--shop-brand-soft);
+  color: var(--shop-brand-deep);
+  font-weight: 600;
+}
+.shop-topnav a.shop-topnav__tech:hover { background: #dfe7ff; }
 .cart-link {
   display: flex; align-items: center; gap: 7px;
   color: var(--shop-brand-deep); text-decoration: none; font-size: 13px; white-space: nowrap;

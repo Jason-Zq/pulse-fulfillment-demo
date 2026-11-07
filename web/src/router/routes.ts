@@ -48,6 +48,8 @@ export const routes: RouteRecordRaw[] = [
     redirect: (to) => ({ path: `/order/${String(to.params.id)}` }),
   },
   { path: '/about', name: 'about', component: () => import('../views/About.vue') },
+  // M9：作品集演示导览（实时链路计数 + 复现命令 + 追问 Q&A），与 /about 的静态介绍分工。
+  { path: '/tour', name: 'tour', component: () => import('../views/Tour.vue') },
   // M7：vue-rabbit 模板的 Login / Member 保留为「演示静态壳」，不接任何鉴权或用户系统。
   { path: '/member', name: 'member', component: () => import('../views/Member.vue') },
   { path: '/login', redirect: '/member' },

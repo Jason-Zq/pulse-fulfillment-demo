@@ -129,6 +129,7 @@
               </p>
               <div class="shop-hero__actions">
                 <ElButton type="warning" @click="scrollToProducts">去下单</ElButton>
+                <RouterLink to="/tour"><ElButton plain>打开 3 分钟演示导览</ElButton></RouterLink>
                 <RouterLink to="/admin/dashboard"><ElButton plain>进运维后台</ElButton></RouterLink>
                 <RouterLink to="/admin/lab"><ElButton plain>看实测数据</ElButton></RouterLink>
               </div>

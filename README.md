@@ -16,7 +16,7 @@
 | 前端 | Vue 3 + TypeScript + Vite + Element Plus |
 | 编排 | Docker Compose |
 
-## 当前完成度：M0–M7 + M8 商城前端成熟化（真正商城前台 + 成熟后台运维 + 技术证据外显 + 浏览器全链路实测 + 生产加固与部署指南）
+## 当前完成度：M0–M7 + M8 商城前端成熟化 + M9 作品集演示导览（真正商城前台 + 成熟后台运维 + 技术证据外显 + 浏览器全链路实测 + 生产加固与部署指南）
 
 已具备：
 
@@ -35,6 +35,8 @@
 - **M7**：生产部署加固与完整部署指南（见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)）。新增独立 `docker-compose.prod.yml`（**不暴露任何宿主端口**：mysql/redis/rabbitmq/api/worker 仅内网互通，web 仅容器内 80 由 Caddy 边缘代理对外发布）；API 注入 `Swagger__Enabled=false` 公网关闭 Swagger；Redis `requirepass` + RabbitMQ 独立账号（连接串自动带凭据）；`restart: unless-stopped` + 资源上限；配套 `deploy/Caddyfile` + `deploy/docker-compose.edge.yml`（Caddy 自动 HTTPS）+ `.env.prod.example` 密钥模板。用生产覆盖干净重建**真容器验证**：宿主端口全部收回、`/api/health` 与 `/api/products` 200、`/swagger/v1/swagger.json` 与 `/swagger/index.html` 经 nginx 与 api 直连**均 404**、带口令链路跑通「下单 → 模拟支付 → 已发货」（pipeline `orders=1/worker=1/deduct=1/deadLetter=0`）。
 
 - **M8（商城前端成熟化）**：以 `vue-rabbit` 为视觉 / 信息架构蓝图重接用户端（**不引入其数据层、axios、JWT 与登录鉴权逻辑**），定调「消费优先 · 技术为暗线」——首页改为轮播 + 5 分类入口 + 猜你喜欢 + 8 商品网格，MySQL/Redis/RabbitMQ 技术叙事收进可折叠「技术溯源」；`ShopLayout` 加全局搜索（`?q=`）与分类导航（`?category=`）；后端 `Product` 加 `Category` 列 + 第 4 条 EF 迁移，`GET /api/products` 外显 `category`（DTO 9 → 10 字段）；新建 `DemoCatalog` 统一启动种子与 `/api/lab/reset`，修掉「一键重置把商城打回 2 个无分类 SKU」的真实缺陷；新增分类内联 SVG 图标、4 视角画廊、面包屑、同类推荐；购物车支持行级勾选 / 全选 / 只结算已选，结算页补模拟地址 / 配送时间 / 优惠券 / 支付方式（**演示项一律不进 `POST /api/orders` 请求体**）；订单详情加 4 步状态条、待支付引导与「模拟发货 · 演示」，订单列表加「去支付」；`/member` + `/login` 保留为明确标注「演示」的**静态壳**，无真实用户系统 / Session / JWT / 鉴权中间件 / 个人信息收集；`tests/e2e/m7-shop.mjs` 真实 chromium 全链路走查 **40/40 PASS**，证据截图在 `docs/screenshots/m7/`。
+
+- **M9（作品集演示导览）**：补回 M8「技术叙事折叠成暗线」后削弱的「可被追问」入口。新增 `/tour` 技术演示导览（顶栏高亮「技术演示」+ 首页技术溯源折叠块入口）：7 步链路卡片实时读 `GET /api/pipeline` 的**真实计数**（`available=false` 显示「—」，不伪造 0），每步标注真实键表名与后台核对页；5 条可复制 curl 复现命令；E1/E2/E3 真实证据卡；8 条高频追问 Q&A（Outbox / TTL+DLX / 双保险 / 3 秒轮询 / 状态语义值 / E3 失败归因 / 「—」哨兵 / .NET 8 EOL）。**不新增后端端点 / 表 / 中间件 / UI 库，不写死任何 RPS / P99 数字**；与 `/about` 的静态介绍分工。`tests/e2e/m9-tour.mjs` 真实 chromium **17/17 PASS**（含 7 节点计数与 `/api/pipeline` 逐一比对）。
 
 **已完成 C 层 Docker 验收**：`docker compose down -v && docker compose up -d --build` 六服务干净重建实测跑通，真实 MySQL 8 四条迁移应用、Redis 7 / RabbitMQ 3.13 真连接；`python3 scripts/verify_docker_e2e.py --deep --m5 --experiments --m6 --m6c` **180 / 180 PASS**（153 条 M6b 基线一条未退化 + 22 条 M6c 新断言 + 5 条 M8 商品/分类断言），含 E1/E2/E3 真实判据全部 `passed=true`。详见下方验证结果表与 `docs/PLAN.md`。
 
@@ -156,7 +158,7 @@ cd web && npm install && npm run dev      # http://localhost:5173，/api 已代�
 |---|---|
 | `dotnet build src/Pulse.sln` | 通过，**0 warning / 0 error** |
 | `dotnet test src/Pulse.sln` | 通过：**211 passed**（Domain 3 + Infrastructure 159 + Api 49），M6b 基线 207 → M6c 新增 4（`PipelineService` 服务层 + `/api/pipeline` 端点集成测试）；M8 加列 / 种子同源后**未退化** |
-| `npm test` / `npm run build` | 通过：**196 passed / 28 个 Vitest 文件**（M6c 167 → M8 新增 29）；`vue-tsc --noEmit` **0 error**，`vite build` **0 error**，最大 chunk **218.82 kB**（仍 < 500 kB；M8 技术 hero 折叠 + 页面 code-split 后较 M6c 的 255.21 kB 回落） |
+| `npm test` / `npm run build` | 通过：**201 passed / 29 个 Vitest 文件**（M8 196 → M9 新增 5）；`vue-tsc --noEmit` **0 error**，`vite build` **0 error**，最大 chunk **219.15 kB**（仍 < 500 kB；M9 的 `/tour` 走路由级 code-split，主 chunk 仅 +0.33 kB） |
 | M0–M5 逐轮 RED 证据 | 均保留（编译错误 / 断言失败）；M1 API 薄适配层「先实现后补测」、M5 `persisted` 未单独先红两处纪律偏差如实记录在 `docs/PLAN.md` |
 | 本地端到端契约联调（A 层） | M4 **33 / 33 PASS**；M5 **30 / 30 PASS**（主会话逐字段按 `web/src/api/types.ts` 核对真 API 响应，含 `id` number、`params`/`result` JSON 字符串、默认开关 true/true/false、静默 404 边界） |
 | `docker compose up -d --build`（Docker Desktop 29.9.2） | **通过**：六服务启动，三个中间件 healthcheck 全 healthy；容器内 `dotnet restore`（含新增 Quartz 3.13.0）、`dotnet publish`、`npm run build` 均跑通 |
@@ -178,6 +180,9 @@ cd web && npm install && npm run dev      # http://localhost:5173，/api 已代�
 | 公网部署 / 演示 GIF / README 架构图 / 浏览器逐页点击（A11） | **M6d / M7 已完成**：`docs/architecture.svg` 架构图、A11 逐页点击 21/21、演示录屏 `docs/screenshots/demo.webm`、生产 compose + Caddy + `docs/DEPLOYMENT.md`；**仅 GIF 转制未做**（本机 ffmpeg 缺 GIF muxer，命令见 `docs/PLAN.md`），真实公网域名 TLS 证书签发需自备环境 |
 | `Swagger__Enabled=false` 关闭路径 | **M7 已真验**：用 `docker-compose.prod.yml` 独立 `pulse_prod` 项目干净重建注入该变量，nginx 8080 与 api 直连的 `/swagger/v1/swagger.json`、`/swagger/index.html` 均 **404**，公开接口文档面已关闭 |
 | `GET /api/orders/{id}` 的 `evidence` 链路计数子对象 | **明确不做**：SPEC v0.2 允许延后到 M6c，M6c 6.13 决议以「Dashboard 泳道 + 可点击节点」满足 G2'，不另做单笔 `/admin/pipeline` 追踪页；订单详情页在字段缺失时明确显示「不伪造 0」，只给中间件 / 真实键表名的证据卡 |
+
+| **M9 演示导览浏览器走查（真实 chromium，2026-11-08）** | `tests/e2e/m9-tour.mjs` 指向 vite dev 5173 / 真容器，**17/17 PASS**：顶栏「技术演示」入口 → 首页折叠块导览链接 → `/tour` → 7 步链路卡 → **7 节点计数与 `GET /api/pipeline` 逐一相等** → 复现命令与复制按钮 → 8 条 Q&A 可展开 → 7 步后台核对链接，0 console / page error |
+| **M9 后端与真容器未退化** | `dotnet test` **211 passed** 不变；真容器验收 `180 / 180 PASS` 不变（M9 未改后端与验收脚本） |
 
 未跑过的验证一律不写「通过」；后续里程碑结果继续追加到这张表。
 
