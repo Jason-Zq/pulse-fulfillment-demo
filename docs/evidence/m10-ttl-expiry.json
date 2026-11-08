@@ -1,0 +1,391 @@
+{
+  "subject": "RabbitMQ TTL 15 分钟自然到期 -> DLX -> 超时关单",
+  "constraints": [
+    "不 mock 时间（只用真实墙钟 time.time / datetime.now(UTC)）",
+    "不缩短 x-message-ttl（脚本只读拓扑参数，不改）",
+    "不手工投递 order.timeout 探针消息（脚本无任何 publish 调用）",
+    "不改数据库里的 ExpiresAtUtc / CreatedAtUtc"
+  ],
+  "sku": "SKU-1",
+  "quantity": 2,
+  "bufferSeconds": 60,
+  "samples": [
+    {
+      "atUtc": "2026-11-08T03:27:06.197158+00:00",
+      "secondsToExpiry": 890.3,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:27:36.216689+00:00",
+      "secondsToExpiry": 860.3,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:28:06.251074+00:00",
+      "secondsToExpiry": 830.3,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:28:36.268238+00:00",
+      "secondsToExpiry": 800.3,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:29:06.295743+00:00",
+      "secondsToExpiry": 770.2,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:29:36.342241+00:00",
+      "secondsToExpiry": 740.2,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:30:06.373315+00:00",
+      "secondsToExpiry": 710.2,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:30:36.406324+00:00",
+      "secondsToExpiry": 680.1,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:31:06.450938+00:00",
+      "secondsToExpiry": 650.1,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:31:36.492005+00:00",
+      "secondsToExpiry": 620.0,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:32:06.534243+00:00",
+      "secondsToExpiry": 590.0,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:32:36.572799+00:00",
+      "secondsToExpiry": 560.0,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:33:06.606821+00:00",
+      "secondsToExpiry": 529.9,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:33:36.645838+00:00",
+      "secondsToExpiry": 499.9,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:34:06.672794+00:00",
+      "secondsToExpiry": 469.9,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:34:36.707323+00:00",
+      "secondsToExpiry": 439.8,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:35:06.739124+00:00",
+      "secondsToExpiry": 409.8,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:35:36.772277+00:00",
+      "secondsToExpiry": 379.8,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:36:06.804365+00:00",
+      "secondsToExpiry": 349.7,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:36:36.833949+00:00",
+      "secondsToExpiry": 319.7,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:37:06.862952+00:00",
+      "secondsToExpiry": 289.7,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:37:36.887943+00:00",
+      "secondsToExpiry": 259.6,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:38:06.920089+00:00",
+      "secondsToExpiry": 229.6,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:38:36.958599+00:00",
+      "secondsToExpiry": 199.6,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:39:06.987239+00:00",
+      "secondsToExpiry": 169.5,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:39:37.005906+00:00",
+      "secondsToExpiry": 139.5,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:40:07.038734+00:00",
+      "secondsToExpiry": 109.5,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:40:37.070572+00:00",
+      "secondsToExpiry": 79.5,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:41:07.104379+00:00",
+      "secondsToExpiry": 49.4,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:41:37.137809+00:00",
+      "secondsToExpiry": 19.4,
+      "status": "Created",
+      "timeoutQueueMessages": 1
+    },
+    {
+      "atUtc": "2026-11-08T03:42:07.179222+00:00",
+      "secondsToExpiry": -10.7,
+      "status": "Cancelled",
+      "timeoutQueueMessages": 0
+    },
+    {
+      "atUtc": "2026-11-08T03:42:37.210920+00:00",
+      "secondsToExpiry": -40.7,
+      "status": "Cancelled",
+      "timeoutQueueMessages": 0
+    }
+  ],
+  "checks": [
+    {
+      "name": "API /api/health 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "q.order.timeout 仍是 900000 ms TTL（未为验证而缩短）",
+      "ok": true,
+      "detail": "900000"
+    },
+    {
+      "name": "q.order.timeout DLX routing key = order.timeout",
+      "ok": true,
+      "detail": "order.timeout"
+    },
+    {
+      "name": "q.order.timeout 无消费者（消息才会自然到期）",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "name": "q.order.timeout 当前无积压（等待窗口干净，不擅自 purge）",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "name": "q.fulfillment 有 Worker 消费者在线（到期后才会被消费）",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "POST /api/lab/reset 200 且重新播种 8 SKU",
+      "ok": true,
+      "detail": "{'status': 'ok', 'productsSeeded': 8, 'clearedAtUtc': '2026-11-08T03:26:56.0758705Z'}"
+    },
+    {
+      "name": "reset 后订单表为空",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "reset 后死信表为空",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "下单前库存快照可读",
+      "ok": true,
+      "detail": "['100', '0', '0']"
+    },
+    {
+      "name": "POST /api/orders 200",
+      "ok": true,
+      "detail": "{'id': 138, 'orderNo': 'PO20261108032656-1fbd', 'status': 'Created', 'message': '订单已创建，等待支付'}"
+    },
+    {
+      "name": "下单后状态 Created",
+      "ok": true,
+      "detail": "Created"
+    },
+    {
+      "name": "GET /api/orders/{id} 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "MySQL 可读下单/截止时间",
+      "ok": true,
+      "detail": "['2026-11-08 03:26:56.527641', '2026-11-08 03:41:56.527641']"
+    },
+    {
+      "name": "订单 TTL 契约：ExpiresAtUtc - CreatedAtUtc == 900 秒",
+      "ok": true,
+      "detail": "delta=900.000s"
+    },
+    {
+      "name": "下单预扣 available-2 / reserved+2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "写入 1 条 Reserve 流水",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "outbox order.created 已投递",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "q.order.timeout 积压 1 条（开始真等 TTL）",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "真实墙钟等待 >= 900 秒（时间没有被 mock / 跳过）",
+      "ok": true,
+      "detail": "waited=960.5s"
+    },
+    {
+      "name": "到期前订单一直是 Created（没有被任何探针/人工路径提前关单）",
+      "ok": true,
+      "detail": "samples=32, earlyCancelled=0"
+    },
+    {
+      "name": "到期前消息一直留在 q.order.timeout（TTL 未被绕过）",
+      "ok": true,
+      "detail": "heldSamples=30"
+    },
+    {
+      "name": "TTL 自然到期后订单 Created -> Cancelled（Worker 真消费 DLX）",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "订单详情状态为 Cancelled（API 语义值，不拿裸整数列比对）",
+      "ok": true,
+      "detail": "Cancelled"
+    },
+    {
+      "name": "q.order.timeout 已排空（消息确实到期离开队列）",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "按该订单落 1 条 Release 流水且数量 = 2",
+      "ok": true,
+      "detail": "['1', '2']"
+    },
+    {
+      "name": "预扣库存完整恢复（available=100 / reserved=0）",
+      "ok": true,
+      "detail": "['100', '0', '2']"
+    },
+    {
+      "name": "库存 Version 因 Reserve + Release 各 +1（共 +2）",
+      "ok": true,
+      "detail": "before=0 after=2"
+    },
+    {
+      "name": "超时关单未产生死信",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "name": "订单未被误标为已支付（PaidAtUtc 仍为 NULL，全程未调用 /pay）",
+      "ok": true,
+      "detail": "1"
+    }
+  ],
+  "startedAtUtc": "2026-11-08T03:26:56.028682+00:00",
+  "inventoryBefore": {
+    "available": 100,
+    "reserved": 0,
+    "version": 0
+  },
+  "orderId": 138,
+  "orderNo": "PO20261108032656-1fbd",
+  "idempotencyKey": "m10-ttl-1794108416",
+  "placedResponse": {
+    "id": 138,
+    "orderNo": "PO20261108032656-1fbd",
+    "status": "Created",
+    "message": "订单已创建，等待支付"
+  },
+  "apiExpiresAtUtc": "2026-11-08T03:41:56.527641",
+  "apiCreatedAtUtc": "2026-11-08T03:26:56.527641",
+  "dbCreatedAtUtc": "2026-11-08 03:26:56.527641",
+  "dbExpiresAtUtc": "2026-11-08 03:41:56.527641",
+  "expiresAtEpoch": 1794109316.527641,
+  "waitedSeconds": 960.5,
+  "expiryReachedAtUtc": "2026-11-08T03:42:56.529818+00:00",
+  "cancelledAtUtc": "2026-11-08T03:42:56.547580+00:00",
+  "secondsFromExpiryToCancelled": 60.0,
+  "finalOrderStatus": "Cancelled",
+  "inventoryAfter": {
+    "available": "100",
+    "reserved": "0",
+    "version": "2"
+  },
+  "finishedAtUtc": "2026-11-08T03:42:57.232682+00:00",
+  "pass": 30,
+  "fail": 0
+}

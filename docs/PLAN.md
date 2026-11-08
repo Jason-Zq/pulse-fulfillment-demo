@@ -1017,3 +1017,51 @@ M9 = 作品集演示导览。**要解决的问题**：M8 定调「消费优先 �
 5. **本轮未跑** `scripts/verify_docker_e2e.py`（后端与脚本零改动，上一里程碑 180/180 仍适用）；未改任何容器配置；导览页只发 GET，不写演示订单，验收后 `/api/lab/reset` 仍为 0 订单 / 8 SKU / 5 分类。
 
 **未验证 / 未完成**：真实等待 15 分钟 TTL 自然到期、Quartz 到 01:00 自动触发、真实公网域名 TLS 部署（需自备环境）。
+
+---
+
+### M10 任务再拆解（2–5 分钟粒度，2026-11-08；状态：**进行中**）
+
+M10 = **时间驱动链路的可演示化 + 真验证**。**要解决的问题**：PLAN / README 长期挂着两条「未验证」——① 真实等待 15 分钟 TTL 自然到期；② Quartz 到 01:00 自动触发。此前只做过参数核对（`x-message-ttl=900000`）与管理台直投 DLX 探针（把 `expiresAtUtc` 改成 2020 年再直接发 `order.timeout`），**都没有让时间真的走完**。作品集第一标准「可被追问、有量化证据」在这两条上是空的：面试官问「TTL 真的会自己到期吗」「日报真是定时任务写的吗」，只能回答「理论上」。M10 用真墙钟、真容器把这两条关掉，并把「还剩多久关单」做成前台可见的倒计时。
+
+**M10 边界（硬约束）**：
+
+- **不 mock 时间、不伪造结果**：不改系统时钟、不改 DB 里的 `ExpiresAtUtc`、不缩短 `OrderTimeoutTtlMs`、不手工投递 `order.timeout` 探针消息。TTL 关单必须靠 RabbitMQ 自己的 900000 ms 队列 TTL **自然到期**后 DLX 触发。
+- Quartz 侧允许把 cron 做成**可配置但默认不变**（仍 `0 0 1 * * ?` / Asia/Shanghai），用一个短 cron 让调度器**自己到点触发**；验证完必须恢复默认，不把短 cron 留在生产配置里。
+- 不新增后端端点 / 表 / 中间件 / UI 库；不改既有 DTO 契约形状；不接真实支付 / 用户系统。
+- **数字诚实**：证据文件里的下单时间、关单截止时间、真实等待秒数、队列深度、库存快照一律实测写入，页面与文档不写死任何等待值或实验值。
+- **隔离**：TTL 真等待窗口内不跑任何会造单或重建 Worker 的脚本，避免别的订单 / 消费者重启污染目标订单；目标订单一律按 `orderNo` / 订单 id 精确断言。
+
+| 子任务 | 内容 | 判据 |
+|---|---|---|
+| 10.1 落规格 | 本节 + 硬约束 + 任务拆解 | PLAN 有 M10 章节，且明确「不 mock 时间」 |
+| 10.2 TTL 真等待脚本 | 新增 `scripts/verify_ttl_expiry.py`：核对拓扑参数 → `POST /api/lab/reset` → 造单 → 从 `GET /api/orders/{id}` 取真实 `expiresAtUtc` → **按墙钟真等 15 分钟 + 缓冲** → 断言订单 `Cancelled`、Release 流水、库存恢复、超时队列排空 | 全程不改时间/不缩短 TTL/不手工投递；结果写 `docs/evidence/m10-ttl-expiry.json`；脚本后台运行，等待窗口内并行做其它开发 |
+| 10.3 RED 前后端测试 | 前端 `utils/ttl.ts` 纯函数单测（剩余秒数 / 格式化 / 过期 / 非法值）+ `OrderDetail.vue` 倒计时静态契约；后端 `DailyReportCron.Resolve` 单测（默认 / 覆盖 / 空白 / 非法段数） | 首次运行 FAIL，留失败证据 |
+| 10.4 GREEN 实现 | `utils/ttl.ts` + `OrderDetail.vue` 在 `Created` 状态显示真实倒计时（每 1 秒刷新，数据来自 `expiresAtUtc`）；`DailyReportCron` 纯函数 + `QuartzDailyReportHost` 读环境变量 + `docker-compose.yml` 给 worker 加**默认 01:00** 变量 | 单测全绿；`vue-tsc` / `dotnet test` 不退化；默认行为与 M9 完全一致 |
+| 10.5 Quartz 真触发 | 用短 cron 重建 worker → 删除昨日 UTC 日报行 → 等调度器**自动**重建该行并核对 Worker 日志 → 恢复默认 cron 与干净演示数据 | 不手工调用 `POST /api/reports/daily`；`daily_reports` 行由 `DailyReportJob` 自动 upsert；恢复后默认仍是 01:00 |
+| 10.6 质量门与收尾 | 四条回归 + 浏览器走查倒计时 + TTL 等待结果核对 + README / PLAN / BOUNDARIES / memory 把两条「未验证」移出 + 自动 commit（不 push） | 全绿；工作树干净；文档不再声称这两项未验证 |
+
+**真验证成功后仍需如实保留的长期项**：真实公网域名 TLS 部署（需用户自备域名 / 服务器 / ICP 备案，本机只做 `compose config` 语法校验与独立 `pulse_prod` 项目重建，未跑真实证书签发）。
+
+### M10 执行记录（2026-11-08，用户「继续开发」后完成；状态：**已完成**）
+
+| 子任务 | 结果 |
+|---|---|
+| 10.1 规格 | 先落「不 mock 时间 / 不缩短 TTL / 不手工投递 / 默认 cron 不变 / 隔离等待窗口」硬约束与 10.1–10.6 拆解，再动代码 |
+| 10.2 TTL 真等待 | 新建 `scripts/verify_ttl_expiry.py`，造单 `PO20261108032656-1fbd` 后按真实墙钟等 **960.5 秒**；**30 / 30 PASS**。32 个采样点显示到期前订单始终 `Created`、`q.order.timeout` 始终 1 条消息；最后 `Created` 采样在到期前 19.4s，第一个 `Cancelled` 采样在到期后 10.7s 且队列排空。到期后 `Release` 流水 1 条（数量 2）、库存 `100/0` 恢复、`Version` +2、0 死信、`PaidAtUtc` NULL。证据 `docs/evidence/m10-ttl-expiry.json` |
+| 10.3 RED | 前端 `web/src/utils/ttl.test.ts` import 不存在模块 + `web/src/views/m10TimeDriven.test.ts` 静态契约 → `FRONT_RED_EXIT=1`、`Test Files 2 failed (2)`；后端 `M10DailyReportCronTests.cs` → `BACKEND_RED_EXIT=1`、6 处 `CS0103: 当前上下文中不存在名称 DailyReportCron` |
+| 10.4 GREEN | `utils/ttl.ts`（`parseUtc` / `remainingSeconds` / `countdownText`）+ `OrderDetail.vue` 1 秒本地时钟倒计时（只在 `Created` 显示）；`DailyReportCron.Resolve` 纯函数 + `QuartzDailyReportHost` 注入 `IConfiguration` / `ILogger` + compose `Reports__DailyCron: "${DAILY_REPORT_CRON:-0 0 1 * * ?}"`。默认行为与 M9 完全一致，prod 覆盖合并后也是 `0 0 1 * * ?` |
+| 10.5 Quartz 真触发 | `scripts/verify_quartz_trigger.py`：短 cron `0/10 * * * * ?` 重建 Worker → 在调度器**已运行**状态下删掉昨日 UTC（2026-11-07）日报行 → 不调任何手工端点 / 不 INSERT / 不 mock 时间，**3.5 秒**后由 `DailyReportJob` 按周期自动 upsert 回来，日志 `日报持久化完成: statDate=11/07/2026`；随后恢复默认，容器内 `Reports__DailyCron=0 0 1 * * ?`。**12 / 12 PASS**，证据 `docs/evidence/m10-quartz-trigger.json` |
+| 10.6 质量门与收尾 | 前端 **215 passed / 31 文件**、`vue-tsc` 0 error、`vite build` 0 error（最大 chunk **219.15 kB**）；后端 **219 passed**、`dotnet build Worker` 0 warning / 0 error；浏览器走查 **10/10 + 4/4 PASS**；真容器全量验收 **180 / 180 PASS**；README / PLAN / BOUNDARIES / memory 同步；按授权自动 commit，**不 push** |
+
+**实施细节与纪律记录（如实）**：
+
+1. **真验证不 mock 时间**：TTL 脚本不改系统时钟、不改 DB 的 `ExpiresAtUtc`、不缩短 `x-message-ttl=900000`、不手工投递 `order.timeout`；消息在 `q.order.timeout` 里等满 15 分钟由 RabbitMQ 自己 DLX。后端 `TimeoutOrderService` 还有 `ExpiresAtUtc > DateTime.UtcNow` 不关单的二次校验，提前伪造消息不会让订单变 `Cancelled`。证据 JSON 里的 `secondsFromExpiryToCancelled=60.0` 是脚本按 `expiresAtUtc + 60s` 缓冲**结束等待后核对的时刻**，不是关单延迟；真实关单时刻以采样序列（到期后 ≤10.7s）为准。
+2. **Quartz 两次断言修正，都不是放宽边界**：① 日志 `statDate=11/07/2026` 是 `DateOnly` 按容器 culture 输出，不是 ISO；改为解析日志里的真实日期再与昨日 UTC 比对。② 首版把删行放在重建 Worker **之前**，等日志期间 Quartz 早已触发，测出误导性的 `elapsed=0.1s`；把可观测窗口移到调度器已运行之后再删行，得到真实的 `3.5s`（下一个 10 秒周期）。按「数字诚实」重跑取可信值。
+3. **前端真实坑**：API 真响应 `expiresAtUtc='2026-11-08T03:41:56.527641'` **不带 Z**（MySQL 读回 `DateTime.Kind=Unspecified`）。`Date.parse` 会把无时区串当本地时间，本机 `Asia/Shanghai` 实测比 UTC 少 28800000 ms（8 小时）。`parseUtc` 显式补 `Z`，浏览器走查把页面 `05:10` 与 API 算出的 310 秒对齐验证。
+4. **隔离纪律**：15 分钟等待窗口内不造单、不 reset、不重建 Worker；浏览器走查用已存在的目标订单且只读。Quartz 验证（会重建 Worker）排在 TTL 验证结束之后。
+5. **附带发现并修复一个真实脚本缺陷**：`scripts/verify_docker_e2e.py` 失败探针固定 `eventId=deadletter-probe-001`，而终态死信保留 Redis `dedup:` 键（TTL 24h，实测残留 43503s），同一套容器二次验收被判重静默 ack → 174/177（3 条死信断言 FAIL）。改为每次唯一的 `deadletter-probe-<timestamp>` 并同步 SQL / 补偿台 / 人工重试匹配，**判据一条未放宽**，重跑 180/180（探针 `deadletter-probe-1794109861`、`RetryCount=3`）。这反向证明消费端幂等双保险在真 Redis 上生效。
+6. **边界如实记录**：`POST /api/lab/reset` 清库不清 RabbitMQ 在途 TTL 消息，验收后立即 reset 会在 15 分钟后产生指向已删除订单的死信；已写入 `docs/BOUNDARIES.md` 7.2，不假装消失。Quartz 验证的是「同一调度器到点自己触发」，用短 cron 缩短观测周期，**没有真的等到次日 01:00**，默认 01:00 cron 语义未变。
+7. **历史记录不改写**：M0–M9 执行记录里大量「未验证」是当时的真实状态，原样保留；本记录声明两项长期挂账已于 M10 解除，当前口径以 README / BOUNDARIES 第 7 节为准。
+
+**未验证 / 未完成（M10 收尾后）**：仅剩真实公网域名 TLS 部署（需自备域名 / 服务器 / ICP 备案）与演示 GIF 转制（本机 ffmpeg 缺 GIF muxer，属辅助项，非验证缺口）。验收后 `POST /api/lab/reset` 恢复为 0 订单 / 8 SKU / 5 分类 / 0 死信，Worker 默认 cron 仍 `0 0 1 * * ?`。

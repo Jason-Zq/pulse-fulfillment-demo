@@ -344,24 +344,28 @@ if DEEP:
     check("超时关单释放预扣并写 Release 流水",
           scalar("SELECT COUNT(*) FROM InventoryLedgers WHERE RefOrderId=%s AND ChangeType='Release';" % c3id) == "1")
 
-    # 制造一条必然失败的消息（订单不存在），观察 3 次重试后入死信
+    # 制造一条必然失败的消息（订单不存在），观察 3 次重试后入死信。
+    # M10 发现的真实可重复性缺陷：探针曾用固定 event_id `deadletter-probe-001`，
+    # 而进入死信的终态消息会保留 Redis `dedup:` 键（TTL 24h）；同一套容器二次运行
+    # 会被判重静默 ack，3 条死信断言全 FAIL。改为每次唯一的探针 ID，不放宽任何判据。
+    probe_id = "deadletter-probe-%d" % int(time.time())
     before = int(scalar("SELECT COUNT(*) FROM DeadLetters;") or 0)
     ghost = {"orderNo": "NO-SUCH-ORDER", "sku": "SKU-1", "quantity": 1}
-    pub = publish("order.paid", ghost, "deadletter-probe-001")
+    pub = publish("order.paid", ghost, probe_id)
     check("mgmt API 投递失败探针成功", pub.get("routed") is True, pub)
     ok, last = wait_until("dead letter recorded", lambda: (
         int(scalar("SELECT COUNT(*) FROM DeadLetters;") or 0) > before), 60, 1.0)
     check("三次重试后 DeadLetters 落库（重试 / DLQ 真链路）", ok,
           "before=%s after=%s" % (before, scalar("SELECT COUNT(*) FROM DeadLetters;")))
     check("死信重试次数为 3（不是被判重后静默丢弃）",
-          scalar("SELECT RetryCount FROM DeadLetters WHERE OriginalEventId='deadletter-probe-001';") == "3",
-          scalar("SELECT RetryCount FROM DeadLetters WHERE OriginalEventId='deadletter-probe-001';"))
+          scalar("SELECT RetryCount FROM DeadLetters WHERE OriginalEventId='%s';" % probe_id) == "3",
+          scalar("SELECT RetryCount FROM DeadLetters WHERE OriginalEventId='%s';" % probe_id))
     st, dl2 = http("GET", "/api/dead-letters")
-    check("补偿台能看到该死信", st == 200 and any("deadletter-probe" in (x.get("originalEventId") or "") for x in dl2),
+    check("补偿台能看到该死信", st == 200 and any(probe_id in (x.get("originalEventId") or "") for x in dl2),
           [x.get("originalEventId") for x in dl2][:3])
     # 人工重试
     if dl2:
-        target = next((x for x in dl2 if "deadletter-probe" in (x.get("originalEventId") or "")), None)
+        target = next((x for x in dl2 if probe_id in (x.get("originalEventId") or "")), None)
         if target:
             st, _ = http("POST", "/api/dead-letters/%s/retry" % target["id"], {})
             check("死信人工重试返回 handled", st == 200, st)

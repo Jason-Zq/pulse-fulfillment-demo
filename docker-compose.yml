@@ -64,6 +64,11 @@ services:
       ConnectionStrings__MySql: "Server=mysql;Database=${MYSQL_DATABASE:-pulse};User=root;Password=${MYSQL_ROOT_PASSWORD:-pulse_dev}"
       ConnectionStrings__Redis: "redis:6379"
       ConnectionStrings__RabbitMq: "host=rabbitmq"
+      # M10：日报 cron 可配置，但默认值与 M5/M9 完全一致（每日 01:00 Asia/Shanghai）。
+      # 仅在本机真验证「Quartz 到点自动触发」时，用 shell 环境变量临时改短：
+      #   DAILY_REPORT_CRON="0/10 * * * * ?" docker compose up -d --force-recreate --no-deps worker
+      # 验证完不带该变量重建即恢复默认；无需改动受版本控制的文件。
+      Reports__DailyCron: "${DAILY_REPORT_CRON:-0 0 1 * * ?}"
     depends_on:
       mysql:
         condition: service_healthy

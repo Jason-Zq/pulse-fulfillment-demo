@@ -36,6 +36,12 @@
           <div>
             <div class="order-callout__title">待支付 · 请在关单截止前完成模拟支付</div>
             <div class="shop-note">不涉及真实收款；模拟支付会触发 Worker 异步履约，状态将在 3 秒内自动刷新。</div>
+            <!-- M10：倒计时只展示后端 expiresAtUtc 与本地真实时钟的差值；关单由 RabbitMQ 队列 TTL 自然到期触发，前端不参与。 -->
+            <div class="order-countdown">
+              <span class="order-countdown__label">距自动关单</span>
+              <strong class="order-countdown__value shop-mono">{{ countdownText(order.expiresAtUtc, nowMs) }}</strong>
+              <span class="shop-note">· 由 RabbitMQ 队列 TTL 自然到期触发，非前端定时器关单</span>
+            </div>
           </div>
           <ElButton type="primary" :loading="paying" @click="pay">立即模拟支付 · 演示</ElButton>
         </div>
@@ -128,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import {
   ElButton, ElTag, ElAlert, ElTable, ElTableColumn,
@@ -137,6 +143,7 @@ import {
 import { api } from '../api/client'
 import type { OrderDetail } from '../api/types'
 import { statusTag } from '../utils/statusTag'
+import { countdownText } from '../utils/ttl'
 import { usePolling } from '../composables/usePolling'
 import TechEvidenceCard from '../components/TechEvidenceCard.vue'
 
@@ -146,6 +153,16 @@ const order = ref<OrderDetail | null>(null)
 const error = ref('')
 const paying = ref(false)
 const shipping = ref(false)
+
+// M10：1 秒本地时钟只驱动倒计时展示；真正的关单发生在后端 RabbitMQ TTL 到期后。
+const nowMs = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => { nowMs.value = Date.now() }, 1000)
+})
+onUnmounted(() => {
+  if (clock) clearInterval(clock)
+})
 
 const activeStep = computed(() => {
   switch (order.value?.status) {
@@ -226,5 +243,9 @@ async function cancel(): Promise<void> {
   background: #fff8ec; border: 1px solid #f6d9a8;
 }
 .order-callout__title { font-size: 15px; font-weight: 620; color: #92400e; margin-bottom: 4px; }
+.order-countdown { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 10px; }
+.order-countdown__label { font-size: 13px; color: #92400e; }
+.order-countdown__value { font-size: 22px; line-height: 1.1; color: #b45309; letter-spacing: 0.5px; }
+.order-countdown .shop-note { font-size: 12px; color: #a16207; }
 @media (max-width: 860px) { .shop-detail-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

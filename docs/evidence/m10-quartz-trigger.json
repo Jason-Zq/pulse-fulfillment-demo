@@ -1,0 +1,87 @@
+{
+  "subject": "Quartz 调度器到点自动触发 DailyReportJob 写入昨日 UTC 日报",
+  "constraints": [
+    "不调用任何手工日报写入端点（POST /api/reports/daily 等）",
+    "不直接 INSERT / UPDATE 日报行（只 DELETE 制造可观测窗口）",
+    "不 mock 时间；短 cron 让真实调度器按真实墙钟触发",
+    "验证完恢复默认 0 0 1 * * ?，不留短 cron"
+  ],
+  "statDate": "2026-11-07",
+  "shortCron": "0/10 * * * * ?",
+  "defaultCron": "0 0 1 * * ?",
+  "checks": [
+    {
+      "name": "未设环境变量时 compose 默认 cron 仍是 01:00",
+      "ok": true,
+      "detail": "['Reports__DailyCron: 0 0 1 * * ?']"
+    },
+    {
+      "name": "设 DAILY_REPORT_CRON 后 compose 插值成短 cron",
+      "ok": true,
+      "detail": "['Reports__DailyCron: 0/10 * * * * ?']"
+    },
+    {
+      "name": "docker compose build worker 成功",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "短 cron 重建 worker 成功",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Worker 日志确认调度器以短 cron 启动（不是默认 01:00）",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "调度器运行中删除昨日日报行，制造可观测窗口",
+      "ok": true,
+      "detail": "before='2026-11-07|0|0|0' after=''"
+    },
+    {
+      "name": "未调用任何手工端点，删行后由调度器周期性自动写回昨日 UTC 日报",
+      "ok": true,
+      "detail": "elapsed=3.5s row=2026-11-07|0|0|0"
+    },
+    {
+      "name": "Worker 日志含 DailyReportJob「日报持久化完成」且 statDate = 昨日 UTC",
+      "ok": true,
+      "detail": "lines=['worker-1  |       日报持久化完成: statDate=11/07/2026'] parsed=['2026-11-07'] expected=2026-11-07"
+    },
+    {
+      "name": "删行后在一个短 cron 周期内自动写回（<= 40 秒，非等到 01:00）",
+      "ok": true,
+      "detail": "elapsed=3.5s"
+    },
+    {
+      "name": "恢复默认配置重建 worker 成功",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Worker 日志确认已恢复默认 cron=0 0 1 * * ?",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "compose 默认口径仍为 01:00（受版本控制的文件未改）",
+      "ok": true,
+      "detail": "['Reports__DailyCron: 0 0 1 * * ?']"
+    }
+  ],
+  "startedAtUtc": "2026-11-08T03:46:43.759386+00:00",
+  "rowExistedBefore": "2026-11-07|0|0|0",
+  "secondsToAutoPersist": 3.5,
+  "rowAfterTrigger": "2026-11-07|0|0|0",
+  "shortCronLogSnippets": [
+    "worker-1  |       Quartz 日报调度已启动: cron=0/10 * * * * ? timezone=Asia/Shanghai (默认 0 0 1 * * ?)",
+    "worker-1  |       日报持久化完成: statDate=11/07/2026"
+  ],
+  "persistLogDateFormat": "worker-1  |       日报持久化完成: statDate=11/07/2026",
+  "restoredDefaultCron": "0 0 1 * * ?",
+  "finishedAtUtc": "2026-11-08T03:46:53.633457+00:00",
+  "pass": 12,
+  "fail": 0
+}
